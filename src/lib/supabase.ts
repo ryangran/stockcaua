@@ -1,4 +1,7 @@
 // Re-exporta o cliente oficial gerado pela integração Lovable Cloud.
-// Não criamos um novo client aqui para evitar erro "supabaseUrl is required"
-// quando VITE_SUPABASE_ANON_KEY não está definido (usamos VITE_SUPABASE_PUBLISHABLE_KEY).
-export { supabase } from '@/integrations/supabase/client';
+// Cast para SupabaseClient não-tipado pois api.ts usa tabelas customizadas
+// que ainda não estão no Database types gerado.
+import { supabase as typedSupabase } from '@/integrations/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+export const supabase = typedSupabase as unknown as SupabaseClient;
