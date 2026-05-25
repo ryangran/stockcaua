@@ -125,11 +125,24 @@ interface StockState {
 const TEMA_KEY = 'stockos_tema';
 const TERMINAL_KEY = 'stockos_terminal_id';
 
+// Guard: localStorage and document don't exist during SSR (Cloudflare Workers)
+const isBrowser = typeof window !== 'undefined' && typeof localStorage !== 'undefined';
+
+function safeLocalGet(key: string): string | null {
+  if (!isBrowser) return null;
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function safeLocalSet(key: string, value: string): void {
+  if (!isBrowser) return;
+  try { localStorage.setItem(key, value); } catch { /* noop */ }
+}
+
 function getTerminalId(): string {
-  const stored = localStorage.getItem(TERMINAL_KEY);
+  const stored = safeLocalGet(TERMINAL_KEY);
   if (stored) return stored;
-  const id = `terminal_${crypto.randomUUID().slice(0, 8)}`;
-  localStorage.setItem(TERMINAL_KEY, id);
+  const id = `terminal_${Math.random().toString(36).slice(2, 10)}`;
+  safeLocalSet(TERMINAL_KEY, id);
   return id;
 }
 
@@ -145,7 +158,7 @@ export const useStockStore = create<StockState>()(
     dashboardStats: { total_skus: 0, valor_total_estoque: 0, itens_criticos: 0, giro_medio: 0 },
     movimentacoesPorDia: [],
     necessidades: [],
-    tema: (localStorage.getItem(TEMA_KEY) as Tema) ?? 'dark',
+    tema: (safeLocalGet(TEMA_KEY) as Tema) ?? 'dark',
     terminalId: getTerminalId(),
     terminaisAtivos: [],
     isLoading: false,
@@ -210,8 +223,8 @@ export const useStockStore = create<StockState>()(
 
     // UI
     setTema: (tema) => {
-      localStorage.setItem(TEMA_KEY, tema);
-      document.documentElement.setAttribute('data-tema', tema);
+      safeLocalSet(TEMA_KEY, tema);
+      if (isBrowser) document.documentElement.setAttribute('data-tema', tema);
       set({ tema });
     },
     toggleTema: () => {

@@ -17,6 +17,7 @@ export function ParticleBackground() {
   const mouse = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const container = containerRef.current;
     if (!container) return;
 
