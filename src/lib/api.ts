@@ -368,35 +368,40 @@ export async function parsearPaste(text: string, produtos: Produto[]): Promise<P
   const linhas = text.trim().split('\n').filter(Boolean);
   const rows: PasteRow[] = [];
 
-  // Detect format by inspecting first data row:
-  // Formato A (legado): Código/Nome | Quantidade | Preço
   // Formato B (planilha): Setor | Produto | Especificação | Quantidade | Unidade | Valor Total
-  const primeiraLinha = linhas[0] ?? '';
-  const primeiraCols = primeiraLinha.split(/\t/).map((c) => c.trim().replace(/^"|"$/g, ''));
-  // Formato B: 5+ colunas onde a col[3] parece número e col[1] é texto de produto
-  const isFormatoB = primeiraCols.length >= 4 && !isNaN(parseFloat((primeiraCols[3] ?? '').replace(',', '.')));
+  // Detecta varrendo TODAS as linhas — ignora cabeçalho onde col[3] é texto
+  const isFormatoB = linhas.some((l) => {
+    const cols = l.split('\t').map((c) => c.trim());
+    return cols.length >= 4 && !isNaN(parseFloat(cols[3].replace(',', '.')));
+  });
 
   for (const linha of linhas) {
-    const cols = linha.split(/\t/).map((c) => c.trim().replace(/^"|"$/g, ''));
+    const cols = linha.split('\t').map((c) => c.trim().replace(/^"|"$/g, ''));
 
     let codigoOuNome: string;
     let quantidade: number;
     let preco_unitario: number | undefined;
 
-    if (isFormatoB && cols.length >= 4) {
+    if (isFormatoB) {
+      // Pula linhas de cabeçalho (col[3] não é número)
+      const qtdRaw = parseFloat((cols[3] ?? '').replace(',', '.'));
+      if (isNaN(qtdRaw)) continue;
+
       // Setor(0) | Produto(1) | Especificação(2) | Quantidade(3) | Unidade(4) | Valor Total(5)
       codigoOuNome = cols[1] ?? '';
-      quantidade = parseFloat((cols[3] ?? '0').replace(',', '.'));
-      const valorTotal = cols[5] ? parseFloat(cols[5].replace(',', '.').replace(/[^\d.]/g, '')) : NaN;
+      quantidade = qtdRaw;
+      const valorTotal = cols[5] ? parseFloat(cols[5].replace(/[^\d,.]/g, '').replace(',', '.')) : NaN;
       preco_unitario = !isNaN(valorTotal) && quantidade > 0 ? valorTotal / quantidade : undefined;
     } else {
-      // Formato legado: separado por tab, vírgula ou ponto-e-vírgula
-      const legadoCols = linha.split(/\t|;|,/).map((c) => c.trim().replace(/^"|"$/g, ''));
-      codigoOuNome = legadoCols[0] ?? '';
-      quantidade = parseFloat((legadoCols[1] ?? '0').replace(',', '.'));
-      const p = legadoCols[2] ? parseFloat(legadoCols[2].replace(',', '.')) : NaN;
+      // Formato legado: Código | Quantidade | Preço (tab, vírgula ou ponto-e-vírgula)
+      const leg = linha.split(/\t|;|,/).map((c) => c.trim().replace(/^"|"$/g, ''));
+      codigoOuNome = leg[0] ?? '';
+      quantidade = parseFloat((leg[1] ?? '0').replace(',', '.'));
+      const p = leg[2] ? parseFloat(leg[2].replace(',', '.')) : NaN;
       preco_unitario = !isNaN(p) ? p : undefined;
     }
+
+    if (!codigoOuNome) continue;
 
     const produto = matchProduto(codigoOuNome, produtos);
     const qtd = isNaN(quantidade) ? 0 : quantidade;
