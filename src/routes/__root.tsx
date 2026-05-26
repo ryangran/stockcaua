@@ -12,11 +12,13 @@ import { Toaster } from 'sonner';
 import { gsap } from '../lib/gsap';
 import { createLenis, destroyLenis } from '../lib/lenis';
 import { useStockStore } from '../store/useStockStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { useRealtime } from '../hooks/useRealtime';
 import { usePresence } from '../hooks/usePresence';
 import { useKonamiCode } from '../hooks/useKonamiCode';
 import { AppLayout } from '../components/layout/AppLayout';
 import { BootScreen } from '../components/shared/BootScreen';
+import { LoginScreen } from '../components/shared/LoginScreen';
 
 import appCss from '../styles.css?url';
 
@@ -153,12 +155,20 @@ function AppCore() {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const [booted, setBooted] = useState(false);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   return (
     <QueryClientProvider client={queryClient}>
       <LenisProvider>
+        {/* Fase 1: boot screen (só aparece uma vez) */}
         {!booted && <BootScreen onComplete={() => setBooted(true)} />}
-        {booted && <AppCore />}
+
+        {/* Fase 2: login (se não autenticado) */}
+        {booted && !isAuthenticated && <LoginScreen />}
+
+        {/* Fase 3: app (autenticado) */}
+        {booted && isAuthenticated && <AppCore />}
+
         <Toaster
           position="bottom-right"
           toastOptions={{
