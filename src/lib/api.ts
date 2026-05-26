@@ -354,29 +354,60 @@ export async function fetchMovimentacoesPorDia(): Promise<MovimentacaoDia[]> {
 }
 
 // ─── Paste Inteligente ────────────────────────────────────
+function matchProduto(nome: string, produtos: Produto[]): Produto | undefined {
+  const q = nome.toLowerCase().trim();
+  if (!q) return undefined;
+  return (
+    produtos.find((p) => p.codigo.toLowerCase() === q) ??
+    produtos.find((p) => p.nome.toLowerCase() === q) ??
+    produtos.find((p) => p.nome.toLowerCase().includes(q) || q.includes(p.nome.toLowerCase()))
+  );
+}
+
 export async function parsearPaste(text: string, produtos: Produto[]): Promise<PasteRow[]> {
   const linhas = text.trim().split('\n').filter(Boolean);
   const rows: PasteRow[] = [];
 
-  for (const linha of linhas) {
-    const cols = linha.split(/\t|;|,/).map((c) => c.trim().replace(/^"|"$/g, ''));
-    const codigoOuNome = cols[0] ?? '';
-    const quantidade = parseFloat((cols[1] ?? '0').replace(',', '.'));
-    const preco_unitario = cols[2] ? parseFloat(cols[2].replace(',', '.')) : undefined;
+  // Detect format by inspecting first data row:
+  // Formato A (legado): Código/Nome | Quantidade | Preço
+  // Formato B (planilha): Setor | Produto | Especificação | Quantidade | Unidade | Valor Total
+  const primeiraLinha = linhas[0] ?? '';
+  const primeiraCols = primeiraLinha.split(/\t/).map((c) => c.trim().replace(/^"|"$/g, ''));
+  // Formato B: 5+ colunas onde a col[3] parece número e col[1] é texto de produto
+  const isFormatoB = primeiraCols.length >= 4 && !isNaN(parseFloat((primeiraCols[3] ?? '').replace(',', '.')));
 
-    const produto = produtos.find(
-      (p) =>
-        p.codigo.toLowerCase() === codigoOuNome.toLowerCase() ||
-        p.nome.toLowerCase().includes(codigoOuNome.toLowerCase())
-    );
+  for (const linha of linhas) {
+    const cols = linha.split(/\t/).map((c) => c.trim().replace(/^"|"$/g, ''));
+
+    let codigoOuNome: string;
+    let quantidade: number;
+    let preco_unitario: number | undefined;
+
+    if (isFormatoB && cols.length >= 4) {
+      // Setor(0) | Produto(1) | Especificação(2) | Quantidade(3) | Unidade(4) | Valor Total(5)
+      codigoOuNome = cols[1] ?? '';
+      quantidade = parseFloat((cols[3] ?? '0').replace(',', '.'));
+      const valorTotal = cols[5] ? parseFloat(cols[5].replace(',', '.').replace(/[^\d.]/g, '')) : NaN;
+      preco_unitario = !isNaN(valorTotal) && quantidade > 0 ? valorTotal / quantidade : undefined;
+    } else {
+      // Formato legado: separado por tab, vírgula ou ponto-e-vírgula
+      const legadoCols = linha.split(/\t|;|,/).map((c) => c.trim().replace(/^"|"$/g, ''));
+      codigoOuNome = legadoCols[0] ?? '';
+      quantidade = parseFloat((legadoCols[1] ?? '0').replace(',', '.'));
+      const p = legadoCols[2] ? parseFloat(legadoCols[2].replace(',', '.')) : NaN;
+      preco_unitario = !isNaN(p) ? p : undefined;
+    }
+
+    const produto = matchProduto(codigoOuNome, produtos);
+    const qtd = isNaN(quantidade) ? 0 : quantidade;
 
     rows.push({
       codigo: codigoOuNome,
-      quantidade: isNaN(quantidade) ? 0 : quantidade,
-      preco_unitario: preco_unitario && !isNaN(preco_unitario) ? preco_unitario : undefined,
-      valido: !!produto && quantidade > 0,
+      quantidade: qtd,
+      preco_unitario,
+      valido: !!produto && qtd > 0,
       produto,
-      erro: !produto ? 'Produto não encontrado' : quantidade <= 0 ? 'Quantidade inválida' : undefined,
+      erro: !produto ? 'Produto não encontrado' : qtd <= 0 ? 'Quantidade inválida' : undefined,
     });
   }
 
