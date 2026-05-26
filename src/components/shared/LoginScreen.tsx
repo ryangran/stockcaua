@@ -8,7 +8,7 @@ const BRAND_LINES = [
   '> Sistema pronto.',
 ];
 
-export function LoginScreen() {
+export function LoginScreen({ onRegistro }: { onRegistro: () => void }) {
   const login = useAuthStore((s) => s.login);
 
   const [usuario, setUsuario] = useState('');
@@ -62,8 +62,11 @@ export function LoginScreen() {
 
     try {
       const ok = await login(usuario, senha);
-      if (ok) {
+      if (ok === true) {
         gsap.to(cardRef.current, { opacity: 0, y: -20, duration: 0.4, ease: 'power2.in' });
+      } else if (ok === 'pendente') {
+        setErro('Acesso pendente de aprovação pelo administrador.');
+        shake();
       } else {
         setErro('Usuário ou senha incorretos.');
         shake();
@@ -231,9 +234,18 @@ export function LoginScreen() {
           </form>
         </div>
 
-        <p className="mt-6 text-center text-xs font-mono" style={{ color: 'var(--vs-border)' }}>
-          Visual Stands Design © {new Date().getFullYear()}
-        </p>
+        <div className="mt-6 flex items-center justify-center gap-4">
+          <p className="text-xs font-mono" style={{ color: 'var(--vs-border)' }}>
+            Visual Stands Design © {new Date().getFullYear()}
+          </p>
+          <button
+            onClick={onRegistro}
+            className="text-xs font-mono underline transition-colors hover:opacity-80"
+            style={{ color: 'var(--vs-muted)' }}
+          >
+            Solicitar acesso
+          </button>
+        </div>
       </div>
     </div>
   );

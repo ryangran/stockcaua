@@ -11,8 +11,19 @@ export interface Produto {
   estoque_minimo: number;
   estoque_maximo: number;
   preco_medio: number;
+  criado_por?: string | null;
+  editado_por?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface Usuario {
+  id: string;
+  nome: string;
+  senha: string;
+  role: 'admin' | 'user';
+  status: 'pendente' | 'aprovado' | 'rejeitado';
+  created_at: string;
 }
 
 export interface Movimentacao {

@@ -19,6 +19,7 @@ import { useKonamiCode } from '../hooks/useKonamiCode';
 import { AppLayout } from '../components/layout/AppLayout';
 import { BootScreen } from '../components/shared/BootScreen';
 import { LoginScreen } from '../components/shared/LoginScreen';
+import { RegistroScreen } from '../components/shared/RegistroScreen';
 
 import appCss from '../styles.css?url';
 
@@ -155,6 +156,7 @@ function AppCore() {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const [booted, setBooted] = useState(false);
+  const [tela, setTela] = useState<'login' | 'registro'>('login');
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   return (
@@ -163,8 +165,13 @@ function RootComponent() {
         {/* Fase 1: boot screen (só aparece uma vez) */}
         {!booted && <BootScreen onComplete={() => setBooted(true)} />}
 
-        {/* Fase 2: login (se não autenticado) */}
-        {booted && !isAuthenticated && <LoginScreen />}
+        {/* Fase 2: login ou registro */}
+        {booted && !isAuthenticated && tela === 'login' && (
+          <LoginScreen onRegistro={() => setTela('registro')} />
+        )}
+        {booted && !isAuthenticated && tela === 'registro' && (
+          <RegistroScreen onVoltar={() => setTela('login')} />
+        )}
 
         {/* Fase 3: app (autenticado) */}
         {booted && isAuthenticated && <AppCore />}

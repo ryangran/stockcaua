@@ -6,6 +6,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { createProduto, updateProduto } from '../../lib/api';
 import { useStockStore } from '../../store/useStockStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import type { Produto } from '../../types';
 
 interface Props {
@@ -34,6 +35,7 @@ export function ProdutoModal({ open, onClose, produto }: Props) {
     }
   }, [open, produto]);
   const { upsertProduto } = useStockStore();
+  const usuarioLogado = useAuthStore((s) => s.usuarioLogado);
 
   const set = (k: string, v: string | number) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -42,11 +44,11 @@ export function ProdutoModal({ open, onClose, produto }: Props) {
     setLoading(true);
     try {
       if (produto) {
-        const p = await updateProduto(produto.id, form);
+        const p = await updateProduto(produto.id, { ...form, editado_por: usuarioLogado });
         upsertProduto(p);
         toast.success('Produto atualizado');
       } else {
-        const p = await createProduto(form);
+        const p = await createProduto({ ...form, criado_por: usuarioLogado });
         upsertProduto(p);
         toast.success('Produto criado');
       }

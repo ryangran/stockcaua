@@ -7,10 +7,11 @@ import { StatusBadge } from '../shared/StatusBadge';
 import { ProdutoModal } from './ProdutoModal';
 import { deleteProduto } from '../../lib/api';
 import { useStockStore } from '../../store/useStockStore';
-import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, AlertTriangle } from 'lucide-react';
 import type { Produto } from '../../types';
 import { ImportarPlanilha } from '../shared/ImportarPlanilha';
 import { PasteModal } from '../shared/PasteModal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 
 function Checkbox({ checked, indeterminate, onChange }: {
   checked: boolean;
@@ -27,9 +28,41 @@ function Checkbox({ checked, indeterminate, onChange }: {
       type="checkbox"
       checked={checked}
       onChange={onChange}
-      className="cursor-pointer rounded"
+      className="cursor-pointer"
       style={{ accentColor: 'var(--vs-orange)', width: 14, height: 14 }}
     />
+  );
+}
+
+function ConfirmDialog({ open, titulo, descricao, onConfirm, onCancel, carregando }: {
+  open: boolean;
+  titulo: string;
+  descricao: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  carregando?: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onCancel()}>
+      <DialogContent className="max-w-sm" style={{ background: 'var(--vs-surface)', border: '1px solid var(--vs-border)' }}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-sm" style={{ color: 'var(--vs-red)' }}>
+            <AlertTriangle size={15} /> {titulo}
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-sm" style={{ color: 'var(--vs-muted)' }}>{descricao}</p>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onCancel} disabled={carregando}>Cancelar</Button>
+          <Button
+            onClick={onConfirm}
+            disabled={carregando}
+            style={{ background: 'var(--vs-red)', color: '#fff' }}
+          >
+            {carregando ? 'Excluindo...' : 'Excluir'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -37,7 +70,10 @@ export function ProdutosTable() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editando, setEditando] = useState<Produto | undefined>();
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [confirmando, setConfirmando] = useState<'single' | 'bulk' | null>(null);
+  const [alvoExclusao, setAlvoExclusao] = useState<Produto | null>(null);
   const [excluindo, setExcluindo] = useState(false);
+
   const { getProdutosFiltrados, filtro, setFiltro, removeProduto } = useStockStore();
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
   const produtos = getProdutosFiltrados();
@@ -53,7 +89,6 @@ export function ProdutosTable() {
     }
   }, [produtos.length]);
 
-  // Limpa seleção quando os produtos mudam (ex: filtro)
   useEffect(() => { setSelecionados(new Set()); }, [filtro]);
 
   function toggleSelecionado(id: string) {
@@ -68,37 +103,45 @@ export function ProdutosTable() {
     setSelecionados(todosSelecionados ? new Set() : new Set(produtos.map((p) => p.id)));
   }
 
-  async function excluir(p: Produto) {
-    if (!confirm(`Excluir "${p.nome}"?`)) return;
+  async function confirmarExclusaoSingle() {
+    if (!alvoExclusao) return;
+    setExcluindo(true);
     try {
-      await deleteProduto(p.id);
-      removeProduto(p.id);
-      setSelecionados((prev) => { const n = new Set(prev); n.delete(p.id); return n; });
-      toast.success('Produto excluído');
+      await deleteProduto(alvoExclusao.id);
+      removeProduto(alvoExclusao.id);
+      setSelecionados((prev) => { const n = new Set(prev); n.delete(alvoExclusao.id); return n; });
+      toast.success(`"${alvoExclusao.nome}" excluído`);
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : (e as { message?: string })?.message ?? 'Erro desconhecido';
-      toast.error(`Erro ao excluir: ${msg}`);
+      console.error('Erro ao excluir produto:', e);
+      const msg = (e as { message?: string })?.message ?? String(e);
+      toast.error(`Erro: ${msg}`);
+    } finally {
+      setExcluindo(false);
+      setConfirmando(null);
+      setAlvoExclusao(null);
     }
   }
 
-  async function excluirSelecionados() {
-    if (!confirm(`Excluir ${selecionados.size} produto(s) selecionado(s)? Esta ação não pode ser desfeita.`)) return;
+  async function confirmarExclusaoBulk() {
     setExcluindo(true);
+    const ids = Array.from(selecionados);
     let ok = 0;
-    let erro = 0;
-    for (const id of selecionados) {
+    let erros = 0;
+    for (const id of ids) {
       try {
         await deleteProduto(id);
         removeProduto(id);
         ok++;
-      } catch {
-        erro++;
+      } catch (e) {
+        console.error('Erro ao excluir:', id, e);
+        erros++;
       }
     }
     setSelecionados(new Set());
     setExcluindo(false);
-    if (erro === 0) toast.success(`${ok} produto(s) excluído(s)`);
-    else toast.warning(`${ok} excluído(s), ${erro} com erro`);
+    setConfirmando(null);
+    if (erros === 0) toast.success(`${ok} produto(s) excluído(s)`);
+    else toast.warning(`${ok} excluído(s), ${erros} com erro — veja o console`);
   }
 
   const fmtR$ = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -136,13 +179,12 @@ export function ProdutosTable() {
         <div className="ml-auto flex items-center gap-2">
           {selecionados.size > 0 && (
             <button
-              onClick={excluirSelecionados}
-              disabled={excluindo}
+              onClick={() => setConfirmando('bulk')}
               className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
               style={{ background: 'rgba(239,68,68,0.12)', color: 'var(--vs-red)', border: '1px solid rgba(239,68,68,0.3)' }}
             >
               <Trash2 size={13} />
-              {excluindo ? 'Excluindo...' : `Excluir ${selecionados.size} selecionado(s)`}
+              Excluir {selecionados.size} selecionado(s)
             </button>
           )}
           <ImportarPlanilha />
@@ -198,7 +240,14 @@ export function ProdutosTable() {
                         <Checkbox checked={sel} onChange={() => toggleSelecionado(p.id)} />
                       </td>
                       <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--vs-muted)' }}>{p.codigo}</td>
-                      <td className="px-4 py-3 font-medium max-w-[200px] truncate">{p.nome}</td>
+                      <td className="px-4 py-3 max-w-[220px]">
+                        <div className="font-medium truncate">{p.nome}</div>
+                        {p.editado_por && (
+                          <div className="text-xs mt-0.5" style={{ color: 'var(--vs-muted)' }}>
+                            editado por <span style={{ color: 'var(--vs-orange)' }}>{p.editado_por}</span>
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-3 tabular-nums font-bold" style={{ color: 'var(--vs-orange)' }}>
                         {p.estoque_atual} <span className="text-xs font-normal" style={{ color: 'var(--vs-muted)' }}>{p.unidade}</span>
                       </td>
@@ -216,7 +265,7 @@ export function ProdutosTable() {
                             <Pencil size={13} />
                           </button>
                           <button
-                            onClick={() => excluir(p)}
+                            onClick={() => { setAlvoExclusao(p); setConfirmando('single'); }}
                             className="rounded p-1.5 transition-colors hover:bg-red-500/10"
                             style={{ color: 'var(--vs-red)' }}
                           >
@@ -231,13 +280,33 @@ export function ProdutosTable() {
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-2.5 text-xs flex items-center gap-2" style={{ color: 'var(--vs-muted)', borderTop: '1px solid var(--vs-border)' }}>
+        <div className="px-4 py-2.5 text-xs" style={{ color: 'var(--vs-muted)', borderTop: '1px solid var(--vs-border)' }}>
           {selecionados.size > 0
             ? <span style={{ color: 'var(--vs-orange)' }}>{selecionados.size} selecionado(s) de {produtos.length}</span>
             : <span>{produtos.length} produto{produtos.length !== 1 ? 's' : ''}</span>
           }
         </div>
       </div>
+
+      {/* Confirmar exclusão simples */}
+      <ConfirmDialog
+        open={confirmando === 'single'}
+        titulo="Excluir produto"
+        descricao={`Excluir "${alvoExclusao?.nome}"? Esta ação não pode ser desfeita.`}
+        onConfirm={confirmarExclusaoSingle}
+        onCancel={() => { setConfirmando(null); setAlvoExclusao(null); }}
+        carregando={excluindo}
+      />
+
+      {/* Confirmar exclusão em lote */}
+      <ConfirmDialog
+        open={confirmando === 'bulk'}
+        titulo="Excluir produtos selecionados"
+        descricao={`Excluir ${selecionados.size} produto(s)? Esta ação não pode ser desfeita.`}
+        onConfirm={confirmarExclusaoBulk}
+        onCancel={() => setConfirmando(null)}
+        carregando={excluindo}
+      />
 
       <ProdutoModal
         open={modalOpen}

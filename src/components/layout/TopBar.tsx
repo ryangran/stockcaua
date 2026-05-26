@@ -1,9 +1,11 @@
-import { useState } from 'react';
-import { Zap, LogOut, KeyRound, User } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Zap, LogOut, KeyRound, User, Shield } from 'lucide-react';
 import { useStockStore } from '../../store/useStockStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { TerminalCounter } from '../shared/TerminalCounter';
 import { AlterarCredenciaisModal } from '../shared/AlterarCredenciaisModal';
+import { AdminUsuarios } from '../admin/AdminUsuarios';
+import { fetchUsuariosPendentes } from '../../lib/api';
 
 const TITLES: Record<string, string> = {
   '/':              'Dashboard',
@@ -18,10 +20,19 @@ const TITLES: Record<string, string> = {
 export function TopBar({ pathname }: { pathname: string }) {
   const tema = useStockStore((s) => s.tema);
   const toggleTema = useStockStore((s) => s.toggleTema);
-  const { usuarioLogado, logout } = useAuthStore();
+  const { usuarioLogado, logout, role } = useAuthStore();
 
   const [menuAberto, setMenuAberto] = useState(false);
   const [modalCredenciais, setModalCredenciais] = useState(false);
+  const [adminAberto, setAdminAberto] = useState(false);
+  const [pendentes, setPendentes] = useState(0);
+
+  useEffect(() => {
+    if (role !== 'admin') return;
+    fetchUsuariosPendentes()
+      .then((us) => setPendentes(us.filter((u) => u.status === 'pendente').length))
+      .catch(() => {});
+  }, [role]);
 
   const title = TITLES[pathname] ?? 'Visual Stands Design';
 
@@ -40,6 +51,23 @@ export function TopBar({ pathname }: { pathname: string }) {
 
         <div className="flex items-center gap-3">
           <TerminalCounter />
+
+          {/* Admin: gerenciar usuários */}
+          {role === 'admin' && (
+            <button
+              onClick={() => setAdminAberto(true)}
+              title="Gerenciar usuários"
+              className="relative rounded-md p-1.5 transition-colors hover:bg-white/5"
+              style={{ color: pendentes > 0 ? 'var(--vs-orange)' : 'var(--vs-muted)' }}
+            >
+              <Shield size={15} />
+              {pendentes > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold" style={{ background: 'var(--vs-orange)', color: '#000' }}>
+                  {pendentes}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Tema toggle */}
           <button
@@ -105,6 +133,11 @@ export function TopBar({ pathname }: { pathname: string }) {
       <AlterarCredenciaisModal
         open={modalCredenciais}
         onClose={() => setModalCredenciais(false)}
+      />
+
+      <AdminUsuarios
+        open={adminAberto}
+        onClose={() => { setAdminAberto(false); fetchUsuariosPendentes().then((us) => setPendentes(us.filter((u) => u.status === 'pendente').length)).catch(() => {}); }}
       />
     </>
   );

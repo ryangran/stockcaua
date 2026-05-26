@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import type {
   Produto, Movimentacao, MovimentacaoTipo, Compra, Kit, Producao, Retorno,
-  DashboardStats, MovimentacaoDia, PasteRow,
+  DashboardStats, MovimentacaoDia, PasteRow, Usuario,
 } from '../types';
 
 // ─── Produtos ─────────────────────────────────────────────
@@ -353,6 +353,33 @@ export async function fetchMovimentacoesPorDia(): Promise<MovimentacaoDia[]> {
   }
 
   return Object.entries(mapa).map(([data, v]) => ({ data, ...v }));
+}
+
+// ─── Usuários ─────────────────────────────────────────────
+export async function solicitarAcesso(nome: string, senha: string): Promise<void> {
+  const { error } = await supabase
+    .from('usuarios')
+    .insert({ nome: nome.trim(), senha, role: 'user', status: 'pendente' });
+  if (error) throw error;
+}
+
+export async function fetchUsuariosPendentes(): Promise<Usuario[]> {
+  const { data, error } = await supabase
+    .from('usuarios')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return data as Usuario[];
+}
+
+export async function aprovarUsuario(id: string): Promise<void> {
+  const { error } = await supabase.from('usuarios').update({ status: 'aprovado' }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function rejeitarUsuario(id: string): Promise<void> {
+  const { error } = await supabase.from('usuarios').update({ status: 'rejeitado' }).eq('id', id);
+  if (error) throw error;
 }
 
 // ─── Paste Inteligente ────────────────────────────────────
