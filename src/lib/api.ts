@@ -14,25 +14,38 @@ export async function fetchProdutos(): Promise<Produto[]> {
   return data;
 }
 
+function semColunaTracking<T extends object>(obj: T): Omit<T, 'criado_por' | 'editado_por'> {
+  const r = { ...obj } as Record<string, unknown>;
+  delete r.criado_por;
+  delete r.editado_por;
+  return r as Omit<T, 'criado_por' | 'editado_por'>;
+}
+
+function isColunaMissing(error: { message?: string; code?: string }) {
+  return error.code === '42703' || (error.message ?? '').includes('column');
+}
+
 export async function createProduto(p: Omit<Produto, 'id' | 'created_at' | 'updated_at'>): Promise<Produto> {
-  const { data, error } = await supabase
-    .from('produtos')
-    .insert(p)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  const { data, error } = await supabase.from('produtos').insert(p).select().single();
+  if (!error) return data;
+  if (isColunaMissing(error)) {
+    const { data: d2, error: e2 } = await supabase.from('produtos').insert(semColunaTracking(p)).select().single();
+    if (e2) throw e2;
+    return d2;
+  }
+  throw error;
 }
 
 export async function updateProduto(id: string, p: Partial<Omit<Produto, 'id'>>): Promise<Produto> {
-  const { data, error } = await supabase
-    .from('produtos')
-    .update({ ...p, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
+  const payload = { ...p, updated_at: new Date().toISOString() };
+  const { data, error } = await supabase.from('produtos').update(payload).eq('id', id).select().single();
+  if (!error) return data;
+  if (isColunaMissing(error)) {
+    const { data: d2, error: e2 } = await supabase.from('produtos').update(semColunaTracking(payload)).eq('id', id).select().single();
+    if (e2) throw e2;
+    return d2;
+  }
+  throw error;
 }
 
 export async function deleteProduto(id: string): Promise<void> {
