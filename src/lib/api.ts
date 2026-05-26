@@ -364,59 +364,68 @@ function matchProduto(nome: string, produtos: Produto[]): Produto | undefined {
   );
 }
 
-export async function parsearPaste(text: string, produtos: Produto[]): Promise<PasteRow[]> {
-  const linhas = text.trim().split('\n').filter(Boolean);
+// Recebe linhas já parseadas (string[][]) — usada tanto pelo upload de planilha quanto pelo paste
+export async function parsearLinhasImport(linhas: string[][], produtos: Produto[]): Promise<PasteRow[]> {
+  if (!linhas.length) return [];
+
+  // Detecta se é formato B (Setor | Produto | Especificação | Quantidade | Unidade | Valor Total)
+  // Procura em todas as linhas uma onde col[3] seja número
+  const isFormatoB = linhas.some(
+    (row) => row.length >= 4 && !isNaN(parseFloat(String(row[3]).replace(',', '.')))
+  );
+
   const rows: PasteRow[] = [];
 
-  // Formato B (planilha): Setor | Produto | Especificação | Quantidade | Unidade | Valor Total
-  // Detecta varrendo TODAS as linhas — ignora cabeçalho onde col[3] é texto
-  const isFormatoB = linhas.some((l) => {
-    const cols = l.split('\t').map((c) => c.trim());
-    return cols.length >= 4 && !isNaN(parseFloat(cols[3].replace(',', '.')));
-  });
-
-  for (const linha of linhas) {
-    const cols = linha.split('\t').map((c) => c.trim().replace(/^"|"$/g, ''));
-
-    let codigoOuNome: string;
-    let quantidade: number;
-    let preco_unitario: number | undefined;
+  for (const cols of linhas) {
+    const cel = (i: number) => String(cols[i] ?? '').trim();
 
     if (isFormatoB) {
-      // Pula linhas de cabeçalho (col[3] não é número)
-      const qtdRaw = parseFloat((cols[3] ?? '').replace(',', '.'));
-      if (isNaN(qtdRaw)) continue;
+      // Pula linhas onde col[3] não é número (cabeçalho, linhas vazias)
+      const qtdRaw = parseFloat(cel(3).replace(',', '.'));
+      if (isNaN(qtdRaw) || qtdRaw <= 0) continue;
 
-      // Setor(0) | Produto(1) | Especificação(2) | Quantidade(3) | Unidade(4) | Valor Total(5)
-      codigoOuNome = cols[1] ?? '';
-      quantidade = qtdRaw;
-      const valorTotal = cols[5] ? parseFloat(cols[5].replace(/[^\d,.]/g, '').replace(',', '.')) : NaN;
-      preco_unitario = !isNaN(valorTotal) && quantidade > 0 ? valorTotal / quantidade : undefined;
+      const codigoOuNome = cel(1);
+      if (!codigoOuNome) continue;
+
+      const valorTotal = parseFloat(cel(5).replace(/[^\d,.]/g, '').replace(',', '.'));
+      const preco_unitario = !isNaN(valorTotal) && qtdRaw > 0 ? valorTotal / qtdRaw : undefined;
+
+      const produto = matchProduto(codigoOuNome, produtos);
+      rows.push({
+        codigo: codigoOuNome,
+        quantidade: qtdRaw,
+        preco_unitario,
+        valido: !!produto,
+        produto,
+        erro: !produto ? 'Produto não encontrado' : undefined,
+      });
     } else {
-      // Formato legado: Código | Quantidade | Preço (tab, vírgula ou ponto-e-vírgula)
-      const leg = linha.split(/\t|;|,/).map((c) => c.trim().replace(/^"|"$/g, ''));
-      codigoOuNome = leg[0] ?? '';
-      quantidade = parseFloat((leg[1] ?? '0').replace(',', '.'));
-      const p = leg[2] ? parseFloat(leg[2].replace(',', '.')) : NaN;
-      preco_unitario = !isNaN(p) ? p : undefined;
+      // Formato legado: Código | Quantidade | Preço
+      const codigoOuNome = cel(0);
+      if (!codigoOuNome) continue;
+      const qtd = parseFloat(cel(1).replace(',', '.'));
+      const preco = parseFloat(cel(2).replace(',', '.'));
+      const quantidade = isNaN(qtd) ? 0 : qtd;
+      const produto = matchProduto(codigoOuNome, produtos);
+      rows.push({
+        codigo: codigoOuNome,
+        quantidade,
+        preco_unitario: !isNaN(preco) ? preco : undefined,
+        valido: !!produto && quantidade > 0,
+        produto,
+        erro: !produto ? 'Produto não encontrado' : quantidade <= 0 ? 'Quantidade inválida' : undefined,
+      });
     }
-
-    if (!codigoOuNome) continue;
-
-    const produto = matchProduto(codigoOuNome, produtos);
-    const qtd = isNaN(quantidade) ? 0 : quantidade;
-
-    rows.push({
-      codigo: codigoOuNome,
-      quantidade: qtd,
-      preco_unitario,
-      valido: !!produto && qtd > 0,
-      produto,
-      erro: !produto ? 'Produto não encontrado' : qtd <= 0 ? 'Quantidade inválida' : undefined,
-    });
   }
 
   return rows;
+}
+
+export async function parsearPaste(text: string, produtos: Produto[]): Promise<PasteRow[]> {
+  const linhas = text.trim().split('\n').filter(Boolean).map((linha) =>
+    linha.split(/\t|;|,/).map((c) => c.trim().replace(/^"|"$/g, ''))
+  );
+  return parsearLinhasImport(linhas, produtos);
 }
 
 // ─── Exportar CSV de Necessidades ─────────────────────────

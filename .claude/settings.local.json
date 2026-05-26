@@ -7,7 +7,9 @@
       "Bash(git fetch *)",
       "Bash(git checkout *)",
       "Bash(git commit -m ' *)",
-      "Bash(bun add *)"
+      "Bash(bun add *)",
+      "Bash(git commit *)",
+      "Bash(findstr /i \"xlsx\\\\|sheetjs\\\\|exceljs\")"
     ]
   }
 }

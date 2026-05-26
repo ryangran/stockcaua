@@ -9,6 +9,7 @@ import { deleteProduto } from '../../lib/api';
 import { useStockStore } from '../../store/useStockStore';
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import type { Produto } from '../../types';
+import { ImportarPlanilha } from '../shared/ImportarPlanilha';
 
 export function ProdutosTable() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -69,13 +70,15 @@ export function ProdutosTable() {
           </button>
         ))}
 
-        <Button
-          onClick={() => { setEditando(undefined); setModalOpen(true); }}
-          className="ml-auto"
-          style={{ background: 'var(--vs-orange)', color: '#000' }}
-        >
-          <Plus size={14} className="mr-1.5" /> Novo Produto
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <ImportarPlanilha />
+          <Button
+            onClick={() => { setEditando(undefined); setModalOpen(true); }}
+            style={{ background: 'var(--vs-orange)', color: '#000' }}
+          >
+            <Plus size={14} className="mr-1.5" /> Novo Produto
+          </Button>
+        </div>
       </div>
 
       {/* Table */}
