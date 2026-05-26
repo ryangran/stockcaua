@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
@@ -17,16 +17,22 @@ interface Props {
 const empty = { codigo: '', nome: '', unidade: 'un', estoque_atual: 0, estoque_minimo: 0, estoque_maximo: 0, preco_medio: 0 };
 
 export function ProdutoModal({ open, onClose, produto }: Props) {
-  const [form, setForm] = useState(produto ? {
-    codigo: produto.codigo,
-    nome: produto.nome,
-    unidade: produto.unidade,
-    estoque_atual: produto.estoque_atual,
-    estoque_minimo: produto.estoque_minimo,
-    estoque_maximo: produto.estoque_maximo,
-    preco_medio: produto.preco_medio,
-  } : empty);
+  const [form, setForm] = useState(empty);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setForm(produto ? {
+        codigo: produto.codigo,
+        nome: produto.nome,
+        unidade: produto.unidade,
+        estoque_atual: produto.estoque_atual,
+        estoque_minimo: produto.estoque_minimo,
+        estoque_maximo: produto.estoque_maximo,
+        preco_medio: produto.preco_medio,
+      } : empty);
+    }
+  }, [open, produto]);
   const { upsertProduto } = useStockStore();
 
   const set = (k: string, v: string | number) => setForm((f) => ({ ...f, [k]: v }));
