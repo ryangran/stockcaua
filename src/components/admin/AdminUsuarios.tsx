@@ -23,7 +23,9 @@ export function AdminUsuarios({ open, onClose }: { open: boolean; onClose: () =>
   const [semTabela, setSemTabela] = useState(false);
   const [copiado, setCopiado] = useState(false);
 
-  const SQL_SETUP = `CREATE TABLE IF NOT EXISTS usuarios (
+  const SQL_SETUP = `-- 1. Recriar tabela com permissões corretas
+DROP TABLE IF EXISTS usuarios;
+CREATE TABLE public.usuarios (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   nome text NOT NULL UNIQUE,
   senha text NOT NULL,
@@ -32,12 +34,21 @@ export function AdminUsuarios({ open, onClose }: { open: boolean; onClose: () =>
   created_at timestamptz DEFAULT now()
 );
 
-INSERT INTO usuarios (nome, senha, role, status)
-VALUES ('caua', '160206', 'admin', 'aprovado')
-ON CONFLICT (nome) DO NOTHING;
+-- 2. Permissões para o PostgREST funcionar
+GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT ALL ON TABLE public.usuarios TO anon, authenticated;
+ALTER TABLE public.usuarios DISABLE ROW LEVEL SECURITY;
 
-ALTER TABLE produtos ADD COLUMN IF NOT EXISTS editado_por text;
-ALTER TABLE produtos ADD COLUMN IF NOT EXISTS criado_por text;`;
+-- 3. Inserir admin
+INSERT INTO public.usuarios (nome, senha, role, status)
+VALUES ('caua', '160206', 'admin', 'aprovado');
+
+-- 4. Colunas de rastreamento nos produtos
+ALTER TABLE public.produtos ADD COLUMN IF NOT EXISTS editado_por text;
+ALTER TABLE public.produtos ADD COLUMN IF NOT EXISTS criado_por text;
+
+-- 5. Recarregar schema
+NOTIFY pgrst, 'reload schema';`;
 
   async function carregar() {
     setLoading(true);
