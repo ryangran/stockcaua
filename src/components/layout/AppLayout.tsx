@@ -16,8 +16,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     if (!contentRef.current) return;
     gsap.fromTo(
       contentRef.current,
-      { opacity: 0, y: 12, z: -30 },
-      { opacity: 1, y: 0, z: 0, duration: 0.35, ease: 'power2.out' }
+      { opacity: 0, y: 10 },
+      { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' }
     );
   }, [pathname]);
 
@@ -31,7 +31,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <TopBar pathname={pathname} />
 
         <main className="flex-1 overflow-y-auto">
-          <div ref={contentRef} className="p-6" style={{ perspective: '1000px' }}>
+          <div ref={contentRef} className="p-6">
             {children}
           </div>
         </main>
