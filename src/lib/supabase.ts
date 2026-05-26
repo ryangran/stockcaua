@@ -1,7 +1,11 @@
-// Re-exporta o cliente oficial gerado pela integração Lovable Cloud.
-// Cast para SupabaseClient não-tipado pois api.ts usa tabelas customizadas
-// que ainda não estão no Database types gerado.
-import { supabase as typedSupabase } from '@/integrations/supabase/client';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
-export const supabase = typedSupabase as unknown as SupabaseClient;
+const SUPABASE_URL = 'https://ucetccekkxacurkfchwd.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Ec7dYMO7H61Il5aAITSDJg_TLlI2OpR';
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  realtime: { params: { eventsPerSecond: 10 } },
+  auth: {
+    persistSession: false,
+  },
+});
