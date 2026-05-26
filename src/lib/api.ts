@@ -358,34 +358,27 @@ export async function fetchMovimentacoesPorDia(): Promise<MovimentacaoDia[]> {
 // ─── Usuários (armazenados em configuracoes como JSON) ────────
 // Usa a tabela configuracoes que já existe — sem criar nova tabela.
 
+// Usa a linha 'auth' existente — campo 'usuario' guarda o JSON de usuários.
+// O admin é hardcoded, então esse campo não é mais necessário para auth.
 async function getUsuariosList(): Promise<Usuario[]> {
   const { data } = await supabase
     .from('configuracoes')
-    .select('senha')
-    .eq('id', 'usuarios_lista')
+    .select('usuario')
+    .eq('id', 'auth')
     .single();
-  if (!data?.senha) return [];
-  try { return JSON.parse(data.senha) as Usuario[]; } catch { return []; }
+  if (!data?.usuario) return [];
+  try {
+    if (data.usuario.trim().startsWith('[')) return JSON.parse(data.usuario) as Usuario[];
+    return [];
+  } catch { return []; }
 }
 
 async function saveUsuariosList(lista: Usuario[]): Promise<void> {
-  const json = JSON.stringify(lista);
-  const now = new Date().toISOString();
-
-  // Tenta upsert (insert ou update pelo id)
-  const { error: upsertErr } = await supabase
+  const { error } = await supabase
     .from('configuracoes')
-    .upsert({ id: 'usuarios_lista', usuario: 'lista_usuarios', senha: json, updated_at: now });
-
-  if (!upsertErr) return;
-
-  // Fallback: tenta update direto caso upsert não seja suportado
-  const { error: updateErr } = await supabase
-    .from('configuracoes')
-    .update({ senha: json, updated_at: now })
-    .eq('id', 'usuarios_lista');
-
-  if (updateErr) throw updateErr;
+    .update({ usuario: JSON.stringify(lista), updated_at: new Date().toISOString() })
+    .eq('id', 'auth');
+  if (error) throw error;
 }
 
 export async function fetchUsuariosPendentes(): Promise<Usuario[]> {
