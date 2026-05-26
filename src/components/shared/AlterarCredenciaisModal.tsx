@@ -30,7 +30,7 @@ export function AlterarCredenciaisModal({ open, onClose }: Props) {
     onClose();
   }
 
-  function handleSalvar(e: React.FormEvent) {
+  async function handleSalvar(e: React.FormEvent) {
     e.preventDefault();
     setErro('');
 
@@ -38,7 +38,7 @@ export function AlterarCredenciaisModal({ open, onClose }: Props) {
     if (novaSenha.length < 4) { setErro('Senha precisa ter pelo menos 4 caracteres.'); return; }
     if (novaSenha !== confirmar) { setErro('Senhas não conferem.'); return; }
 
-    const ok = alterarCredenciais(senhaAtual, novoUsuario.trim(), novaSenha);
+    const ok = await alterarCredenciais(senhaAtual, novoUsuario.trim(), novaSenha);
     if (!ok) {
       setErro('Senha atual incorreta.');
       return;

@@ -60,9 +60,7 @@ export function LoginScreen() {
     setErro('');
     setLoading(true);
 
-    await new Promise((r) => setTimeout(r, 400)); // simula verificação
-
-    const ok = login(usuario, senha);
+    const ok = await login(usuario, senha);
     if (ok) {
       gsap.to(cardRef.current, { opacity: 0, y: -20, duration: 0.4, ease: 'power2.in' });
     } else {
