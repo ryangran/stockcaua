@@ -355,31 +355,112 @@ export async function fetchMovimentacoesPorDia(): Promise<MovimentacaoDia[]> {
   return Object.entries(mapa).map(([data, v]) => ({ data, ...v }));
 }
 
-// ─── Usuários ─────────────────────────────────────────────
-export async function solicitarAcesso(nome: string, senha: string): Promise<void> {
-  const { error } = await supabase
-    .from('usuarios')
-    .insert({ nome: nome.trim(), senha, role: 'user', status: 'pendente' });
-  if (error) throw error;
+// ─── Usuários (armazenados em configuracoes como JSON) ────────
+// Usa a tabela configuracoes que já existe — sem criar nova tabela.
+
+async function getUsuariosList(): Promise<Usuario[]> {
+  const { data } = await supabase
+    .from('configuracoes')
+    .select('senha')
+    .eq('id', 'usuarios_lista')
+    .single();
+  if (!data?.senha) return [];
+  try { return JSON.parse(data.senha) as Usuario[]; } catch { return []; }
+}
+
+async function saveUsuariosList(lista: Usuario[]): Promise<void> {
+  const json = JSON.stringify(lista);
+  const { data: existing } = await supabase
+    .from('configuracoes')
+    .select('id')
+    .eq('id', 'usuarios_lista')
+    .single();
+  if (existing) {
+    await supabase
+      .from('configuracoes')
+      .update({ senha: json, updated_at: new Date().toISOString() })
+      .eq('id', 'usuarios_lista');
+  } else {
+    await supabase
+      .from('configuracoes')
+      .insert({ id: 'usuarios_lista', usuario: 'lista_usuarios', senha: json });
+  }
 }
 
 export async function fetchUsuariosPendentes(): Promise<Usuario[]> {
-  const { data, error } = await supabase
-    .from('usuarios')
-    .select('*')
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data as Usuario[];
+  return getUsuariosList();
+}
+
+export async function solicitarAcesso(nome: string, senha: string): Promise<void> {
+  const lista = await getUsuariosList();
+  if (lista.find((u) => u.nome.toLowerCase() === nome.trim().toLowerCase())) {
+    throw new Error('Usuário já existe');
+  }
+  lista.push({
+    id: crypto.randomUUID(),
+    nome: nome.trim(),
+    senha,
+    role: 'user',
+    status: 'pendente',
+    created_at: new Date().toISOString(),
+  });
+  await saveUsuariosList(lista);
 }
 
 export async function aprovarUsuario(id: string): Promise<void> {
-  const { error } = await supabase.from('usuarios').update({ status: 'aprovado' }).eq('id', id);
-  if (error) throw error;
+  const lista = await getUsuariosList();
+  const u = lista.find((u) => u.id === id);
+  if (u) u.status = 'aprovado';
+  await saveUsuariosList(lista);
 }
 
 export async function rejeitarUsuario(id: string): Promise<void> {
-  const { error } = await supabase.from('usuarios').update({ status: 'rejeitado' }).eq('id', id);
-  if (error) throw error;
+  const lista = await getUsuariosList();
+  const u = lista.find((u) => u.id === id);
+  if (u) u.status = 'rejeitado';
+  await saveUsuariosList(lista);
+}
+
+export async function updateCredenciais(
+  nomeAtual: string,
+  senhaAtual: string,
+  novoNome: string,
+  novaSenha: string,
+  role: 'admin' | 'user',
+): Promise<boolean> {
+  const lista = await getUsuariosList();
+  const u = lista.find((u) => u.nome.toLowerCase() === nomeAtual.toLowerCase() && u.senha === senhaAtual);
+  if (!u) {
+    // Admin hardcoded: valida e adiciona à lista
+    if (nomeAtual === 'caua' && senhaAtual === '160206') {
+      const idx = lista.findIndex((u) => u.nome === 'caua');
+      if (idx >= 0) {
+        lista[idx].nome = novoNome;
+        lista[idx].senha = novaSenha;
+      } else {
+        lista.push({ id: crypto.randomUUID(), nome: novoNome, senha: novaSenha, role, status: 'aprovado', created_at: new Date().toISOString() });
+      }
+      await saveUsuariosList(lista);
+      return true;
+    }
+    return false;
+  }
+  u.nome = novoNome;
+  u.senha = novaSenha;
+  await saveUsuariosList(lista);
+  return true;
+}
+
+export async function loginCheck(
+  nome: string,
+  senha: string,
+): Promise<{ ok: true; role: 'admin' | 'user'; nome: string } | { ok: false; motivo: 'pendente' | 'invalido' }> {
+  const lista = await getUsuariosList();
+  const u = lista.find((u) => u.nome.toLowerCase() === nome.trim().toLowerCase() && u.senha === senha);
+  if (!u) return { ok: false, motivo: 'invalido' };
+  if (u.status === 'pendente') return { ok: false, motivo: 'pendente' };
+  if (u.status === 'rejeitado') return { ok: false, motivo: 'invalido' };
+  return { ok: true, role: u.role, nome: u.nome };
 }
 
 // ─── Paste Inteligente ────────────────────────────────────

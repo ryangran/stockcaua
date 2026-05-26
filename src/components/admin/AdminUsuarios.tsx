@@ -20,57 +20,15 @@ export function AdminUsuarios({ open, onClose }: { open: boolean; onClose: () =>
     if (open) carregar();
   }, [open]);
 
-  const [semTabela, setSemTabela] = useState(false);
-  const [copiado, setCopiado] = useState(false);
-
-  const SQL_SETUP = `-- 1. Recriar tabela com permissões corretas
-DROP TABLE IF EXISTS usuarios;
-CREATE TABLE public.usuarios (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  nome text NOT NULL UNIQUE,
-  senha text NOT NULL,
-  role text NOT NULL DEFAULT 'user',
-  status text NOT NULL DEFAULT 'pendente',
-  created_at timestamptz DEFAULT now()
-);
-
--- 2. Permissões para o PostgREST funcionar
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
-GRANT ALL ON TABLE public.usuarios TO anon, authenticated;
-ALTER TABLE public.usuarios DISABLE ROW LEVEL SECURITY;
-
--- 3. Inserir admin
-INSERT INTO public.usuarios (nome, senha, role, status)
-VALUES ('caua', '160206', 'admin', 'aprovado');
-
--- 4. Colunas de rastreamento nos produtos
-ALTER TABLE public.produtos ADD COLUMN IF NOT EXISTS editado_por text;
-ALTER TABLE public.produtos ADD COLUMN IF NOT EXISTS criado_por text;
-
--- 5. Recarregar schema
-NOTIFY pgrst, 'reload schema';`;
-
   async function carregar() {
     setLoading(true);
-    setSemTabela(false);
     try {
       setUsuarios(await fetchUsuariosPendentes());
     } catch (e: unknown) {
-      const msg = (e as { message?: string })?.message ?? '';
-      if (msg.includes('schema cache') || msg.includes('not find')) {
-        setSemTabela(true);
-      } else {
-        toast.error(msg || 'Erro ao carregar usuários');
-      }
+      toast.error((e as { message?: string })?.message ?? 'Erro ao carregar usuários');
     } finally {
       setLoading(false);
     }
-  }
-
-  function copiarSQL() {
-    navigator.clipboard.writeText(SQL_SETUP);
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2000);
   }
 
   async function aprovar(id: string) {
@@ -120,36 +78,10 @@ NOTIFY pgrst, 'reload schema';`;
 
         {loading ? (
           <p className="py-8 text-center text-xs" style={{ color: 'var(--vs-muted)' }}>Carregando...</p>
-        ) : semTabela ? (
-          <div className="space-y-3">
-            <div className="rounded-lg px-4 py-3 text-xs" style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.25)' }}>
-              <p className="font-semibold mb-1" style={{ color: 'var(--vs-orange)' }}>Configuração necessária</p>
-              <p style={{ color: 'var(--vs-muted)' }}>
-                A tabela de usuários ainda não existe. Copie o SQL abaixo e execute no{' '}
-                <a href="https://supabase.com/dashboard/project/ucetccekkxacurkfchwd/sql/new" target="_blank" rel="noreferrer" style={{ color: 'var(--vs-orange)', textDecoration: 'underline' }}>
-                  Supabase SQL Editor ↗
-                </a>
-              </p>
-            </div>
-            <pre
-              className="rounded-lg p-3 text-xs overflow-auto max-h-48 select-all"
-              style={{ background: '#0a0a0a', border: '1px solid var(--vs-border)', color: '#ccc', fontFamily: 'monospace', lineHeight: 1.6 }}
-            >
-              {SQL_SETUP}
-            </pre>
-            <button
-              onClick={copiarSQL}
-              className="w-full rounded-lg py-2 text-xs font-bold transition-colors"
-              style={{ background: copiado ? 'rgba(34,197,94,0.2)' : 'var(--vs-orange)', color: copiado ? '#22C55E' : '#000' }}
-            >
-              {copiado ? '✓ Copiado!' : 'Copiar SQL'}
-            </button>
-            <p className="text-xs text-center" style={{ color: 'var(--vs-muted)' }}>
-              Após executar, feche e reabra este painel.
-            </p>
-          </div>
         ) : usuarios.length === 0 ? (
-          <p className="py-8 text-center text-xs" style={{ color: 'var(--vs-muted)' }}>Nenhum usuário cadastrado</p>
+          <p className="py-8 text-center text-xs" style={{ color: 'var(--vs-muted)' }}>
+            Nenhum usuário cadastrado ainda. Quando alguém solicitar acesso, aparecerá aqui.
+          </p>
         ) : (
           <div className="space-y-1.5 max-h-96 overflow-y-auto">
             {usuarios.map((u) => {
@@ -175,7 +107,7 @@ NOTIFY pgrst, 'reload schema';`;
                       <button
                         onClick={() => aprovar(u.id)}
                         disabled={emEspera}
-                        className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors"
+                        className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium"
                         style={{ background: 'rgba(34,197,94,0.12)', color: '#22C55E', border: '1px solid rgba(34,197,94,0.3)' }}
                       >
                         <Check size={12} /> Aprovar
@@ -183,7 +115,7 @@ NOTIFY pgrst, 'reload schema';`;
                       <button
                         onClick={() => rejeitar(u.id)}
                         disabled={emEspera}
-                        className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors"
+                        className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium"
                         style={{ background: 'rgba(239,68,68,0.12)', color: 'var(--vs-red)', border: '1px solid rgba(239,68,68,0.3)' }}
                       >
                         <X size={12} /> Rejeitar
@@ -197,7 +129,6 @@ NOTIFY pgrst, 'reload schema';`;
                       disabled={emEspera}
                       className="rounded px-2 py-1 text-xs transition-colors hover:bg-red-500/10"
                       style={{ color: 'var(--vs-muted)' }}
-                      title="Revogar acesso"
                     >
                       Revogar
                     </button>

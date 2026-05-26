@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '../lib/supabase';
+import { loginCheck } from '../lib/api';
 
 const isBrowser = typeof window !== 'undefined';
 
@@ -18,7 +18,6 @@ function getSessionCookie(): Session | null {
   try {
     const parsed = JSON.parse(decodeURIComponent(match[1]));
     if (parsed?.usuario) return { usuario: parsed.usuario, role: parsed.role ?? 'admin' };
-    // backward compat: old cookie was plain string
     return { usuario: decodeURIComponent(match[1]), role: 'admin' };
   } catch {
     return { usuario: decodeURIComponent(match[1]), role: 'admin' };
@@ -47,24 +46,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   role: session?.role ?? 'admin',
 
   login: async (usuario, senha) => {
-    // Tenta a tabela usuarios primeiro
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('id, nome, role, status')
-      .eq('nome', usuario.trim())
-      .eq('senha', senha)
-      .single();
-
-    if (!error && data) {
-      if (data.status === 'pendente') return 'pendente';
-      if (data.status === 'rejeitado') return false;
-      const sess: Session = { usuario: data.nome, role: data.role as 'admin' | 'user' };
-      setSessionCookie(sess);
-      set({ isAuthenticated: true, usuarioLogado: data.nome, role: data.role as 'admin' | 'user' });
-      return true;
-    }
-
-    // Fallback: admin hardcoded se tabela não existir
+    // Admin hardcoded — sempre funciona independente do banco
     if (usuario.trim() === 'caua' && senha === '160206') {
       const sess: Session = { usuario: 'caua', role: 'admin' };
       setSessionCookie(sess);
@@ -72,7 +54,20 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       return true;
     }
 
-    return false;
+    // Busca na lista de usuários salva em configuracoes
+    try {
+      const result = await loginCheck(usuario, senha);
+      if (result.ok) {
+        const sess: Session = { usuario: result.nome, role: result.role };
+        setSessionCookie(sess);
+        set({ isAuthenticated: true, usuarioLogado: result.nome, role: result.role });
+        return true;
+      }
+      if (result.motivo === 'pendente') return 'pendente';
+      return false;
+    } catch {
+      return false;
+    }
   },
 
   logout: () => {
@@ -81,26 +76,12 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   },
 
   alterarCredenciais: async (senhaAtual, novoUsuario, novaSenha) => {
-    const { usuarioLogado, role } = get();
-    const { data, error } = await supabase
-      .from('usuarios')
-      .select('id')
-      .eq('nome', usuarioLogado)
-      .eq('senha', senhaAtual)
-      .single();
-
-    if (error || !data) return false;
-
-    const { error: updateErr } = await supabase
-      .from('usuarios')
-      .update({ nome: novoUsuario.trim(), senha: novaSenha })
-      .eq('id', data.id);
-
-    if (updateErr) return false;
-
-    const sess: Session = { usuario: novoUsuario.trim(), role };
-    setSessionCookie(sess);
-    set({ usuarioLogado: novoUsuario.trim() });
-    return true;
+    // Verifica senha atual e atualiza na lista
+    try {
+      const { updateCredenciais } = await import('../lib/api');
+      return updateCredenciais(get().usuarioLogado, senhaAtual, novoUsuario.trim(), novaSenha, get().role);
+    } catch {
+      return false;
+    }
   },
 }));
