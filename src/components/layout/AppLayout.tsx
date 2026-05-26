@@ -30,12 +30,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 flex-col overflow-hidden" style={{ position: 'relative', zIndex: 1 }}>
         <TopBar pathname={pathname} />
 
-        <main
-          ref={contentRef}
-          className="flex-1 overflow-y-auto p-6"
-          style={{ perspective: '1000px' }}
-        >
-          {children}
+        <main className="flex-1 overflow-y-auto">
+          <div ref={contentRef} className="p-6" style={{ perspective: '1000px' }}>
+            {children}
+          </div>
         </main>
       </div>
     </div>
