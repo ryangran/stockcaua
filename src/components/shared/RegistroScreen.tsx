@@ -28,6 +28,8 @@ export function RegistroScreen({ onVoltar }: { onVoltar: () => void }) {
       const msg = (err as { message?: string })?.message ?? String(err);
       if (msg.includes('unique') || msg.includes('duplicate')) {
         toast.error('Esse nome de usuário já existe');
+      } else if (msg.includes('schema cache') || msg.includes('not find')) {
+        toast.error('Sistema ainda em configuração. Peça ao administrador para configurar o banco.');
       } else {
         toast.error(`Erro: ${msg}`);
       }
