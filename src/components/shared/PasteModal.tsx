@@ -84,7 +84,12 @@ export function PasteModal({ tipo }: { tipo: MovimentacaoTipo }) {
       toast.success(msg);
       clearPasteRows();
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : 'Erro ao processar');
+      console.error('Erro na importação:', e);
+      const msg =
+        e instanceof Error
+          ? e.message
+          : (e as { message?: string })?.message ?? JSON.stringify(e);
+      toast.error(`Erro: ${msg}`);
     } finally {
       setLoading(false);
     }
