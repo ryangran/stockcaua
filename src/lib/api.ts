@@ -356,6 +356,21 @@ export async function fetchMovimentacoesPorDia(): Promise<MovimentacaoDia[]> {
 }
 
 // ─── Paste Inteligente ────────────────────────────────────
+function parseCurrency(val: string): number {
+  const s = val.replace(/[^\d,.]/g, '');
+  if (!s) return NaN;
+  const lastComma = s.lastIndexOf(',');
+  const lastDot = s.lastIndexOf('.');
+  if (lastComma > lastDot) {
+    // Formato BR: "1.306,40" → remove pontos, troca vírgula
+    return parseFloat(s.replace(/\./g, '').replace(',', '.'));
+  } else if (lastDot > lastComma) {
+    // Formato EN: "1,306.40" → remove vírgulas
+    return parseFloat(s.replace(/,/g, ''));
+  }
+  return parseFloat(s);
+}
+
 function matchProduto(nome: string, produtos: Produto[]): Produto | undefined {
   const q = nome.toLowerCase().trim();
   if (!q) return undefined;
@@ -389,10 +404,7 @@ export async function parsearLinhasImport(linhas: string[][], produtos: Produto[
       const nomeProduto = cel(1);
       if (!nomeProduto) continue;
 
-      // Remove R$, espaços e pontos de milhar; troca vírgula decimal por ponto
-      // Ex: "R$ 1.306,40" → "1306.40"
-      const valorTotalStr = cel(5).replace(/[^\d,]/g, '').replace(',', '.');
-      const valorTotal = parseFloat(valorTotalStr);
+      const valorTotal = parseCurrency(cel(5));
       const preco_unitario = !isNaN(valorTotal) && qtdRaw > 0 ? valorTotal / qtdRaw : undefined;
 
       const produto = matchProduto(nomeProduto, produtos);
