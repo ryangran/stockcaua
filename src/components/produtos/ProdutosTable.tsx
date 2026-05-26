@@ -11,6 +11,7 @@ import { Plus, Search, Pencil, Trash2, AlertTriangle } from 'lucide-react';
 import type { Produto } from '../../types';
 import { ImportarPlanilha } from '../shared/ImportarPlanilha';
 import { PasteModal } from '../shared/PasteModal';
+import { useAuthStore } from '../../store/useAuthStore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 
 function Checkbox({ checked, indeterminate, onChange }: {
@@ -75,6 +76,7 @@ export function ProdutosTable() {
   const [excluindo, setExcluindo] = useState(false);
 
   const { getProdutosFiltrados, filtro, setFiltro, removeProduto } = useStockStore();
+  const usuarioLogado = useAuthStore((s) => s.usuarioLogado);
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
   const produtos = getProdutosFiltrados();
 
@@ -110,7 +112,7 @@ export function ProdutosTable() {
       await deleteProduto(alvoExclusao.id);
       removeProduto(alvoExclusao.id);
       setSelecionados((prev) => { const n = new Set(prev); n.delete(alvoExclusao.id); return n; });
-      toast.success(`"${alvoExclusao.nome}" excluído`);
+      toast.success(`"${alvoExclusao.nome}" excluído por ${usuarioLogado}`);
     } catch (e: unknown) {
       console.error('Erro ao excluir produto:', e);
       const msg = (e as { message?: string })?.message ?? String(e);
@@ -140,7 +142,7 @@ export function ProdutosTable() {
     setSelecionados(new Set());
     setExcluindo(false);
     setConfirmando(null);
-    if (erros === 0) toast.success(`${ok} produto(s) excluído(s)`);
+    if (erros === 0) toast.success(`${ok} produto(s) excluído(s) por ${usuarioLogado}`);
     else toast.warning(`${ok} excluído(s), ${erros} com erro — veja o console`);
   }
 

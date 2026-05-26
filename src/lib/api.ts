@@ -49,6 +49,8 @@ export async function updateProduto(id: string, p: Partial<Omit<Produto, 'id'>>)
 }
 
 export async function deleteProduto(id: string): Promise<void> {
+  const { error: errComp } = await supabase.from('compras').delete().eq('produto_id', id);
+  if (errComp) throw errComp;
   const { error: errMov } = await supabase.from('movimentacoes').delete().eq('produto_id', id);
   if (errMov) throw errMov;
   const { error } = await supabase.from('produtos').delete().eq('id', id);
