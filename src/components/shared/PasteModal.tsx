@@ -2,41 +2,86 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
+import { PackagePlus } from 'lucide-react';
 import { useStockStore } from '../../store/useStockStore';
-import { registrarMovimentacao } from '../../lib/api';
-import type { MovimentacaoTipo } from '../../types';
+import { registrarMovimentacao, createProduto } from '../../lib/api';
+import type { MovimentacaoTipo, PasteRow } from '../../types';
 
 const fmtR$ = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+function gerarCodigo(nome: string): string {
+  const iniciais = nome
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('')
+    .slice(0, 5);
+  const sufixo = Math.random().toString(36).slice(2, 5).toUpperCase();
+  return `${iniciais}-${sufixo}`;
+}
 
 export function PasteModal({ tipo }: { tipo: MovimentacaoTipo }) {
   const { pasteRows, pasteModalAberto, clearPasteRows, terminalId, upsertProduto, produtos } = useStockStore();
   const [loading, setLoading] = useState(false);
+  const [criarNovos, setCriarNovos] = useState(true);
 
   const validos = pasteRows.filter((r) => r.valido);
-  const invalidos = pasteRows.filter((r) => !r.valido);
+  const naoEncontrados = pasteRows.filter((r) => !r.valido && r.erro === 'Não encontrado');
+  const totalConfirmar = criarNovos ? validos.length + naoEncontrados.length : validos.length;
 
-  // Detecta se vieram dados da planilha com colunas extras
   const temFormatoB = pasteRows.some((r) => r.setor !== undefined);
+
+  async function processarRow(row: PasteRow, produtoId: string) {
+    await registrarMovimentacao({
+      produto_id: produtoId,
+      tipo: tipo === 'entrada' ? 'ajuste' : 'saida',
+      quantidade: row.quantidade,
+      motivo: 'Importação via planilha',
+      terminal: terminalId,
+    });
+  }
 
   async function confirmar() {
     setLoading(true);
+    let criados = 0;
+    let processados = 0;
+
     try {
+      // Processa itens já encontrados
       for (const row of validos) {
         if (!row.produto) continue;
-        await registrarMovimentacao({
-          produto_id: row.produto.id,
-          tipo: tipo === 'entrada' ? 'ajuste' : 'saida',
-          quantidade: row.quantidade,
-          motivo: 'Importação via planilha',
-          terminal: terminalId,
-        });
+        await processarRow(row, row.produto.id);
         const delta = tipo === 'entrada' ? row.quantidade : -row.quantidade;
         const prodAtual = produtos.find((p) => p.id === row.produto!.id);
-        if (prodAtual) {
-          upsertProduto({ ...prodAtual, estoque_atual: prodAtual.estoque_atual + delta });
+        if (prodAtual) upsertProduto({ ...prodAtual, estoque_atual: prodAtual.estoque_atual + delta });
+        processados++;
+      }
+
+      // Cria e processa produtos não encontrados
+      if (criarNovos) {
+        for (const row of naoEncontrados) {
+          const novoProd = await createProduto({
+            codigo: gerarCodigo(row.codigo),
+            nome: row.codigo,
+            unidade: row.unidade_planilha || 'un',
+            estoque_atual: 0,
+            estoque_minimo: 0,
+            estoque_maximo: 0,
+            preco_medio: row.preco_unitario ?? 0,
+          });
+          upsertProduto(novoProd);
+          await processarRow(row, novoProd.id);
+          const delta = tipo === 'entrada' ? row.quantidade : -row.quantidade;
+          upsertProduto({ ...novoProd, estoque_atual: novoProd.estoque_atual + delta });
+          criados++;
+          processados++;
         }
       }
-      toast.success(`${validos.length} movimentações registradas`);
+
+      const msg = criarNovos && criados > 0
+        ? `${processados} itens importados (${criados} produtos criados automaticamente)`
+        : `${processados} movimentações registradas`;
+      toast.success(msg);
       clearPasteRows();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Erro ao processar');
@@ -59,11 +104,38 @@ export function PasteModal({ tipo }: { tipo: MovimentacaoTipo }) {
       >
         <DialogHeader>
           <DialogTitle style={{ color: 'var(--vs-orange)', fontSize: 14 }}>
-            Importar planilha — {validos.length} válidos / {invalidos.length} inválidos
+            Importar planilha — {validos.length} existentes / {naoEncontrados.length} novos
           </DialogTitle>
         </DialogHeader>
 
-        <div className="max-h-96 overflow-y-auto overflow-x-auto">
+        {/* Toggle criar novos */}
+        {naoEncontrados.length > 0 && (
+          <button
+            onClick={() => setCriarNovos((v) => !v)}
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-xs text-left transition-colors"
+            style={{
+              background: criarNovos ? 'rgba(249,115,22,0.08)' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${criarNovos ? 'rgba(249,115,22,0.3)' : 'var(--vs-border)'}`,
+            }}
+          >
+            <div
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
+              style={{
+                background: criarNovos ? 'var(--vs-orange)' : 'transparent',
+                border: `1.5px solid ${criarNovos ? 'var(--vs-orange)' : 'var(--vs-muted)'}`,
+              }}
+            >
+              {criarNovos && <span style={{ color: '#000', fontSize: 10, fontWeight: 900 }}>✓</span>}
+            </div>
+            <PackagePlus size={13} style={{ color: 'var(--vs-orange)' }} />
+            <span style={{ color: '#fff' }}>
+              Criar automaticamente os <strong>{naoEncontrados.length} produtos não encontrados</strong>
+            </span>
+            <span style={{ color: 'var(--vs-muted)' }}>— código gerado automaticamente, você pode editar depois</span>
+          </button>
+        )}
+
+        <div className="max-h-80 overflow-y-auto overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr>
@@ -75,68 +147,71 @@ export function PasteModal({ tipo }: { tipo: MovimentacaoTipo }) {
                     {th('Qtd')}
                     {th('Unid')}
                     {th('Valor Total')}
-                    {th('Encontrado')}
                     {th('Status')}
                   </>
                 ) : (
                   <>
                     {th('Código / Nome')}
                     {th('Qtd')}
-                    {th('Encontrado')}
                     {th('Status')}
                   </>
                 )}
               </tr>
             </thead>
             <tbody>
-              {pasteRows.map((row, i) => (
-                <tr
-                  key={i}
-                  className="border-t"
-                  style={{ borderColor: 'var(--vs-border)', opacity: row.valido ? 1 : 0.5 }}
-                >
-                  {temFormatoB ? (
-                    <>
-                      <td className="py-1.5 pr-3 text-xs" style={{ color: 'var(--vs-muted)' }}>{row.setor || '—'}</td>
-                      <td className="py-1.5 pr-3 text-xs font-medium">{row.codigo}</td>
-                      <td className="py-1.5 pr-3 text-xs" style={{ color: 'var(--vs-muted)', maxWidth: 160 }} title={row.especificacao}>
-                        <span className="block truncate">{row.especificacao || '—'}</span>
-                      </td>
-                      <td className="py-1.5 pr-3 text-xs tabular-nums font-bold" style={{ color: 'var(--vs-orange)' }}>
-                        {row.quantidade}
-                      </td>
-                      <td className="py-1.5 pr-3 text-xs" style={{ color: 'var(--vs-muted)' }}>{row.unidade_planilha || '—'}</td>
-                      <td className="py-1.5 pr-3 text-xs tabular-nums">{row.valor_total != null ? fmtR$(row.valor_total) : '—'}</td>
-                      <td className="py-1.5 pr-3 text-xs">{row.produto?.nome ?? '—'}</td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="py-1.5 pr-3 font-mono text-xs">{row.codigo}</td>
-                      <td className="py-1.5 pr-3 text-xs tabular-nums font-bold" style={{ color: 'var(--vs-orange)' }}>{row.quantidade}</td>
-                      <td className="py-1.5 pr-3 text-xs">{row.produto?.nome ?? '—'}</td>
-                    </>
-                  )}
-                  <td className="py-1.5">
-                    {row.valido ? (
-                      <span className="vs-badge-ok rounded px-2 py-0.5 text-xs">OK</span>
+              {pasteRows.map((row, i) => {
+                const seraProcessado = row.valido || (criarNovos && row.erro === 'Não encontrado');
+                return (
+                  <tr
+                    key={i}
+                    className="border-t"
+                    style={{ borderColor: 'var(--vs-border)', opacity: seraProcessado ? 1 : 0.4 }}
+                  >
+                    {temFormatoB ? (
+                      <>
+                        <td className="py-1.5 pr-3 text-xs" style={{ color: 'var(--vs-muted)' }}>{row.setor || '—'}</td>
+                        <td className="py-1.5 pr-3 text-xs font-medium">{row.codigo}</td>
+                        <td className="py-1.5 pr-3 text-xs" style={{ color: 'var(--vs-muted)', maxWidth: 140 }} title={row.especificacao}>
+                          <span className="block truncate">{row.especificacao || '—'}</span>
+                        </td>
+                        <td className="py-1.5 pr-3 text-xs tabular-nums font-bold" style={{ color: 'var(--vs-orange)' }}>
+                          {row.quantidade}
+                        </td>
+                        <td className="py-1.5 pr-3 text-xs" style={{ color: 'var(--vs-muted)' }}>{row.unidade_planilha || '—'}</td>
+                        <td className="py-1.5 pr-3 text-xs tabular-nums">{row.valor_total != null ? fmtR$(row.valor_total) : '—'}</td>
+                      </>
                     ) : (
-                      <span className="vs-badge-critical rounded px-2 py-0.5 text-xs">{row.erro}</span>
+                      <>
+                        <td className="py-1.5 pr-3 font-mono text-xs">{row.codigo}</td>
+                        <td className="py-1.5 pr-3 text-xs tabular-nums font-bold" style={{ color: 'var(--vs-orange)' }}>{row.quantidade}</td>
+                      </>
                     )}
-                  </td>
-                </tr>
-              ))}
+                    <td className="py-1.5">
+                      {row.valido ? (
+                        <span className="vs-badge-ok rounded px-2 py-0.5 text-xs">Existente</span>
+                      ) : row.erro === 'Não encontrado' && criarNovos ? (
+                        <span className="rounded px-2 py-0.5 text-xs" style={{ background: 'rgba(249,115,22,0.15)', color: 'var(--vs-orange)', border: '1px solid rgba(249,115,22,0.3)' }}>
+                          Criar novo
+                        </span>
+                      ) : (
+                        <span className="vs-badge-critical rounded px-2 py-0.5 text-xs">{row.erro}</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex items-center">
           <Button variant="ghost" onClick={clearPasteRows} disabled={loading}>Cancelar</Button>
           <Button
             onClick={confirmar}
-            disabled={loading || validos.length === 0}
+            disabled={loading || totalConfirmar === 0}
             style={{ background: 'var(--vs-orange)', color: '#000' }}
           >
-            {loading ? 'Processando...' : `Confirmar ${validos.length} itens`}
+            {loading ? 'Processando...' : `Confirmar ${totalConfirmar} itens`}
           </Button>
         </DialogFooter>
       </DialogContent>
