@@ -370,21 +370,22 @@ async function getUsuariosList(): Promise<Usuario[]> {
 
 async function saveUsuariosList(lista: Usuario[]): Promise<void> {
   const json = JSON.stringify(lista);
-  const { data: existing } = await supabase
+  const now = new Date().toISOString();
+
+  // Tenta upsert (insert ou update pelo id)
+  const { error: upsertErr } = await supabase
     .from('configuracoes')
-    .select('id')
-    .eq('id', 'usuarios_lista')
-    .single();
-  if (existing) {
-    await supabase
-      .from('configuracoes')
-      .update({ senha: json, updated_at: new Date().toISOString() })
-      .eq('id', 'usuarios_lista');
-  } else {
-    await supabase
-      .from('configuracoes')
-      .insert({ id: 'usuarios_lista', usuario: 'lista_usuarios', senha: json });
-  }
+    .upsert({ id: 'usuarios_lista', usuario: 'lista_usuarios', senha: json, updated_at: now });
+
+  if (!upsertErr) return;
+
+  // Fallback: tenta update direto caso upsert não seja suportado
+  const { error: updateErr } = await supabase
+    .from('configuracoes')
+    .update({ senha: json, updated_at: now })
+    .eq('id', 'usuarios_lista');
+
+  if (updateErr) throw updateErr;
 }
 
 export async function fetchUsuariosPendentes(): Promise<Usuario[]> {
