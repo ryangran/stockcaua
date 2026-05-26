@@ -45,26 +45,32 @@ export function PasteModal({ tipo }: { tipo: MovimentacaoTipo }) {
     setLoading(true);
     let criados = 0;
     let processados = 0;
+    let erros = 0;
 
-    try {
-      // Processa itens já encontrados
-      for (const row of validos) {
-        if (!row.produto) continue;
+    // Processa itens já encontrados — cada um individualmente para não parar no erro
+    for (const row of validos) {
+      if (!row.produto) continue;
+      try {
         await processarRow(row, row.produto.id);
         const delta = tipo === 'entrada' ? row.quantidade : -row.quantidade;
         const prodAtual = produtos.find((p) => p.id === row.produto!.id);
         if (prodAtual) upsertProduto({ ...prodAtual, estoque_atual: prodAtual.estoque_atual + delta });
         processados++;
+      } catch (e) {
+        console.error('Erro ao processar:', row.codigo, e);
+        erros++;
       }
+    }
 
-      // Cria produtos não encontrados com estoque e preço já corretos (sem movimento)
-      if (criarNovos) {
-        for (const row of naoEncontrados) {
+    // Cria produtos não encontrados com estoque e preço já corretos (sem movimento)
+    if (criarNovos) {
+      for (const row of naoEncontrados) {
+        try {
           const novoProd = await createProduto({
             codigo: gerarCodigo(row.codigo),
             nome: row.codigo,
             unidade: row.unidade_planilha || 'un',
-            estoque_atual: row.quantidade,   // já entra com o estoque correto
+            estoque_atual: row.quantidade,
             estoque_minimo: 0,
             estoque_maximo: 0,
             preco_medio: row.preco_unitario ?? 0,
@@ -72,24 +78,24 @@ export function PasteModal({ tipo }: { tipo: MovimentacaoTipo }) {
           upsertProduto(novoProd);
           criados++;
           processados++;
+        } catch (e) {
+          console.error('Erro ao criar produto:', row.codigo, e);
+          erros++;
         }
       }
+    }
 
-      const msg = criarNovos && criados > 0
+    setLoading(false);
+
+    if (erros === 0) {
+      const msg = criados > 0
         ? `${processados} itens importados (${criados} produtos criados automaticamente)`
         : `${processados} movimentações registradas`;
       toast.success(msg);
-      clearPasteRows();
-    } catch (e: unknown) {
-      console.error('Erro na importação:', e);
-      const msg =
-        e instanceof Error
-          ? e.message
-          : (e as { message?: string })?.message ?? JSON.stringify(e);
-      toast.error(`Erro: ${msg}`);
-    } finally {
-      setLoading(false);
+    } else {
+      toast.warning(`${processados} importados, ${erros} com erro — veja o console`);
     }
+    clearPasteRows();
   }
 
   const th = (label: string) => (
