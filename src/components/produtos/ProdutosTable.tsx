@@ -10,6 +10,7 @@ import { useStockStore } from '../../store/useStockStore';
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import type { Produto } from '../../types';
 import { ImportarPlanilha } from '../shared/ImportarPlanilha';
+import { PasteModal } from '../shared/PasteModal';
 
 export function ProdutosTable() {
   const [modalOpen, setModalOpen] = useState(false);
@@ -151,6 +152,8 @@ export function ProdutosTable() {
         onClose={() => setModalOpen(false)}
         produto={editando}
       />
+
+      <PasteModal tipo="entrada" />
     </div>
   );
 }

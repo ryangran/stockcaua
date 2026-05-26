@@ -387,7 +387,10 @@ export async function parsearLinhasImport(linhas: string[][], produtos: Produto[
       const nomeProduto = cel(1);
       if (!nomeProduto) continue;
 
-      const valorTotal = parseFloat(cel(5).replace(/[^\d,.]/g, '').replace(',', '.'));
+      // Remove R$, espaços e pontos de milhar; troca vírgula decimal por ponto
+      // Ex: "R$ 1.306,40" → "1306.40"
+      const valorTotalStr = cel(5).replace(/[^\d,]/g, '').replace(',', '.');
+      const valorTotal = parseFloat(valorTotalStr);
       const preco_unitario = !isNaN(valorTotal) && qtdRaw > 0 ? valorTotal / qtdRaw : undefined;
 
       const produto = matchProduto(nomeProduto, produtos);

@@ -57,22 +57,19 @@ export function PasteModal({ tipo }: { tipo: MovimentacaoTipo }) {
         processados++;
       }
 
-      // Cria e processa produtos não encontrados
+      // Cria produtos não encontrados com estoque e preço já corretos (sem movimento)
       if (criarNovos) {
         for (const row of naoEncontrados) {
           const novoProd = await createProduto({
             codigo: gerarCodigo(row.codigo),
             nome: row.codigo,
             unidade: row.unidade_planilha || 'un',
-            estoque_atual: 0,
+            estoque_atual: row.quantidade,   // já entra com o estoque correto
             estoque_minimo: 0,
             estoque_maximo: 0,
             preco_medio: row.preco_unitario ?? 0,
           });
           upsertProduto(novoProd);
-          await processarRow(row, novoProd.id);
-          const delta = tipo === 'entrada' ? row.quantidade : -row.quantidade;
-          upsertProduto({ ...novoProd, estoque_atual: novoProd.estoque_atual + delta });
           criados++;
           processados++;
         }
