@@ -41,7 +41,8 @@ export const useAuthStore = create<AuthState>()((set) => ({
       .eq('id', 'auth')
       .single();
 
-    if (error || !data) return false;
+    if (error) throw new Error('Erro ao conectar com o banco. Verifique a conexão.');
+    if (!data) throw new Error('Configuração de acesso não encontrada. Execute o SQL de setup.');
     if (usuario.trim() !== data.usuario || senha !== data.senha) return false;
 
     setSessionCookie(usuario.trim());

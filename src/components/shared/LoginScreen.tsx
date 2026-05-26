@@ -60,11 +60,16 @@ export function LoginScreen() {
     setErro('');
     setLoading(true);
 
-    const ok = await login(usuario, senha);
-    if (ok) {
-      gsap.to(cardRef.current, { opacity: 0, y: -20, duration: 0.4, ease: 'power2.in' });
-    } else {
-      setErro('Usuário ou senha incorretos.');
+    try {
+      const ok = await login(usuario, senha);
+      if (ok) {
+        gsap.to(cardRef.current, { opacity: 0, y: -20, duration: 0.4, ease: 'power2.in' });
+      } else {
+        setErro('Usuário ou senha incorretos.');
+        shake();
+      }
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro desconhecido.');
       shake();
     }
     setLoading(false);
