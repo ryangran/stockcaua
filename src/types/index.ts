@@ -109,6 +109,11 @@ export interface PasteRow {
   valido: boolean;
   produto?: Produto;
   erro?: string;
+  // campos extras da planilha (Setor | Produto | Especificação | Quantidade | Unidade | Valor Total)
+  setor?: string;
+  especificacao?: string;
+  unidade_planilha?: string;
+  valor_total?: number;
 }
 
 export type Tema = 'dark' | 'neon';

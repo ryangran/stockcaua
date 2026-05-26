@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
 import { useStockStore } from '../../store/useStockStore';
 import { registrarMovimentacao } from '../../lib/api';
 import type { MovimentacaoTipo } from '../../types';
+
+const fmtR$ = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export function PasteModal({ tipo }: { tipo: MovimentacaoTipo }) {
   const { pasteRows, pasteModalAberto, clearPasteRows, terminalId, upsertProduto, produtos } = useStockStore();
@@ -13,6 +14,9 @@ export function PasteModal({ tipo }: { tipo: MovimentacaoTipo }) {
 
   const validos = pasteRows.filter((r) => r.valido);
   const invalidos = pasteRows.filter((r) => !r.valido);
+
+  // Detecta se vieram dados da planilha com colunas extras
+  const temFormatoB = pasteRows.some((r) => r.setor !== undefined);
 
   async function confirmar() {
     setLoading(true);
@@ -23,10 +27,9 @@ export function PasteModal({ tipo }: { tipo: MovimentacaoTipo }) {
           produto_id: row.produto.id,
           tipo: tipo === 'entrada' ? 'ajuste' : 'saida',
           quantidade: row.quantidade,
-          motivo: 'Importação via paste',
+          motivo: 'Importação via planilha',
           terminal: terminalId,
         });
-        // Atualizar store localmente
         const delta = tipo === 'entrada' ? row.quantidade : -row.quantidade;
         const prodAtual = produtos.find((p) => p.id === row.produto!.id);
         if (prodAtual) {
@@ -42,36 +45,82 @@ export function PasteModal({ tipo }: { tipo: MovimentacaoTipo }) {
     }
   }
 
+  const th = (label: string) => (
+    <th className="pb-2 pr-3 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: 'var(--vs-muted)' }}>
+      {label}
+    </th>
+  );
+
   return (
     <Dialog open={pasteModalAberto} onOpenChange={(o) => !o && clearPasteRows()}>
-      <DialogContent className="max-w-2xl" style={{ background: 'var(--vs-surface)', border: '1px solid var(--vs-border)' }}>
+      <DialogContent
+        className="max-w-4xl"
+        style={{ background: 'var(--vs-surface)', border: '1px solid var(--vs-border)' }}
+      >
         <DialogHeader>
-          <DialogTitle style={{ color: 'var(--vs-orange)' }}>
-            Importar via Paste — {validos.length} válidos / {invalidos.length} inválidos
+          <DialogTitle style={{ color: 'var(--vs-orange)', fontSize: 14 }}>
+            Importar planilha — {validos.length} válidos / {invalidos.length} inválidos
           </DialogTitle>
         </DialogHeader>
 
-        <div className="max-h-80 overflow-y-auto">
+        <div className="max-h-96 overflow-y-auto overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs" style={{ color: 'var(--vs-muted)' }}>
-                <th className="pb-2 pr-4">Código/Nome</th>
-                <th className="pb-2 pr-4">Produto encontrado</th>
-                <th className="pb-2 pr-4">Qtd</th>
-                <th className="pb-2">Status</th>
+              <tr>
+                {temFormatoB ? (
+                  <>
+                    {th('Setor')}
+                    {th('Produto')}
+                    {th('Especificação')}
+                    {th('Qtd')}
+                    {th('Unid')}
+                    {th('Valor Total')}
+                    {th('Encontrado')}
+                    {th('Status')}
+                  </>
+                ) : (
+                  <>
+                    {th('Código / Nome')}
+                    {th('Qtd')}
+                    {th('Encontrado')}
+                    {th('Status')}
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
               {pasteRows.map((row, i) => (
-                <tr key={i} className="border-t" style={{ borderColor: 'var(--vs-border)' }}>
-                  <td className="py-1.5 pr-4 font-mono text-xs">{row.codigo}</td>
-                  <td className="py-1.5 pr-4">{row.produto?.nome ?? '—'}</td>
-                  <td className="py-1.5 pr-4">{row.quantidade}</td>
+                <tr
+                  key={i}
+                  className="border-t"
+                  style={{ borderColor: 'var(--vs-border)', opacity: row.valido ? 1 : 0.5 }}
+                >
+                  {temFormatoB ? (
+                    <>
+                      <td className="py-1.5 pr-3 text-xs" style={{ color: 'var(--vs-muted)' }}>{row.setor || '—'}</td>
+                      <td className="py-1.5 pr-3 text-xs font-medium">{row.codigo}</td>
+                      <td className="py-1.5 pr-3 text-xs" style={{ color: 'var(--vs-muted)', maxWidth: 160 }} title={row.especificacao}>
+                        <span className="block truncate">{row.especificacao || '—'}</span>
+                      </td>
+                      <td className="py-1.5 pr-3 text-xs tabular-nums font-bold" style={{ color: 'var(--vs-orange)' }}>
+                        {row.quantidade}
+                      </td>
+                      <td className="py-1.5 pr-3 text-xs" style={{ color: 'var(--vs-muted)' }}>{row.unidade_planilha || '—'}</td>
+                      <td className="py-1.5 pr-3 text-xs tabular-nums">{row.valor_total != null ? fmtR$(row.valor_total) : '—'}</td>
+                      <td className="py-1.5 pr-3 text-xs">{row.produto?.nome ?? '—'}</td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="py-1.5 pr-3 font-mono text-xs">{row.codigo}</td>
+                      <td className="py-1.5 pr-3 text-xs tabular-nums font-bold" style={{ color: 'var(--vs-orange)' }}>{row.quantidade}</td>
+                      <td className="py-1.5 pr-3 text-xs">{row.produto?.nome ?? '—'}</td>
+                    </>
+                  )}
                   <td className="py-1.5">
                     {row.valido ? (
-                      <Badge className="vs-badge-ok text-xs">OK</Badge>
+                      <span className="vs-badge-ok rounded px-2 py-0.5 text-xs">OK</span>
                     ) : (
-                      <Badge className="vs-badge-critical text-xs">{row.erro}</Badge>
+                      <span className="vs-badge-critical rounded px-2 py-0.5 text-xs">{row.erro}</span>
                     )}
                   </td>
                 </tr>

@@ -368,8 +368,8 @@ function matchProduto(nome: string, produtos: Produto[]): Produto | undefined {
 export async function parsearLinhasImport(linhas: string[][], produtos: Produto[]): Promise<PasteRow[]> {
   if (!linhas.length) return [];
 
-  // Detecta se é formato B (Setor | Produto | Especificação | Quantidade | Unidade | Valor Total)
-  // Procura em todas as linhas uma onde col[3] seja número
+  // Formato B: Setor(0) | Produto(1) | Especificação(2) | Quantidade(3) | Unidade(4) | Valor Total(5)
+  // Detecta procurando qualquer linha onde col[3] seja número (ignora cabeçalho com texto)
   const isFormatoB = linhas.some(
     (row) => row.length >= 4 && !isNaN(parseFloat(String(row[3]).replace(',', '.')))
   );
@@ -380,24 +380,28 @@ export async function parsearLinhasImport(linhas: string[][], produtos: Produto[
     const cel = (i: number) => String(cols[i] ?? '').trim();
 
     if (isFormatoB) {
-      // Pula linhas onde col[3] não é número (cabeçalho, linhas vazias)
+      // Pula cabeçalho e linhas vazias (col[3] não é número)
       const qtdRaw = parseFloat(cel(3).replace(',', '.'));
       if (isNaN(qtdRaw) || qtdRaw <= 0) continue;
 
-      const codigoOuNome = cel(1);
-      if (!codigoOuNome) continue;
+      const nomeProduto = cel(1);
+      if (!nomeProduto) continue;
 
       const valorTotal = parseFloat(cel(5).replace(/[^\d,.]/g, '').replace(',', '.'));
       const preco_unitario = !isNaN(valorTotal) && qtdRaw > 0 ? valorTotal / qtdRaw : undefined;
 
-      const produto = matchProduto(codigoOuNome, produtos);
+      const produto = matchProduto(nomeProduto, produtos);
       rows.push({
-        codigo: codigoOuNome,
+        codigo: nomeProduto,
         quantidade: qtdRaw,
         preco_unitario,
         valido: !!produto,
         produto,
-        erro: !produto ? 'Produto não encontrado' : undefined,
+        erro: !produto ? 'Não encontrado' : undefined,
+        setor: cel(0),
+        especificacao: cel(2),
+        unidade_planilha: cel(4),
+        valor_total: !isNaN(valorTotal) ? valorTotal : undefined,
       });
     } else {
       // Formato legado: Código | Quantidade | Preço
@@ -413,7 +417,7 @@ export async function parsearLinhasImport(linhas: string[][], produtos: Produto[
         preco_unitario: !isNaN(preco) ? preco : undefined,
         valido: !!produto && quantidade > 0,
         produto,
-        erro: !produto ? 'Produto não encontrado' : quantidade <= 0 ? 'Quantidade inválida' : undefined,
+        erro: !produto ? 'Não encontrado' : quantidade <= 0 ? 'Qtd inválida' : undefined,
       });
     }
   }
