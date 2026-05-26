@@ -106,17 +106,6 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function LenisProvider({ children }: { children: React.ReactNode }) {
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const lenis = createLenis();
-    const onTick = (time: number) => lenis.raf(time * 1000);
-    gsap.ticker.add(onTick);
-    gsap.ticker.lagSmoothing(0);
-    return () => {
-      gsap.ticker.remove(onTick);
-      destroyLenis();
-    };
-  }, []);
   return <>{children}</>;
 }
 
