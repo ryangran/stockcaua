@@ -212,7 +212,7 @@ export function ProdutosTable() {
                     onChange={toggleTodos}
                   />
                 </th>
-                {['Código', 'Nome', 'Estoque', 'Mín', 'Máx', 'Preço Médio', 'Status', ''].map((h) => (
+                {['Setor', 'Produto', 'Especificação', 'Qtd', 'Unidade', 'Valor Total', 'Status', ''].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--vs-muted)' }}>
                     {h}
                   </th>
@@ -222,7 +222,7 @@ export function ProdutosTable() {
             <tbody ref={tbodyRef}>
               {produtos.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-sm" style={{ color: 'var(--vs-muted)' }}>
+                  <td colSpan={10} className="py-12 text-center text-sm" style={{ color: 'var(--vs-muted)' }}>
                     Nenhum produto encontrado
                   </td>
                 </tr>
@@ -241,33 +241,29 @@ export function ProdutosTable() {
                       <td className="px-4 py-3">
                         <Checkbox checked={sel} onChange={() => toggleSelecionado(p.id)} />
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--vs-muted)' }}>{p.codigo}</td>
-                      <td className="px-4 py-3 max-w-[260px]">
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--vs-muted)' }}>
+                        {p.categoria || <span style={{ color: 'var(--vs-border)' }}>—</span>}
+                      </td>
+                      <td className="px-4 py-3 max-w-[220px]">
                         <div className="font-medium truncate">{p.nome}</div>
-                        {p.categoria && (
-                          <div className="text-xs mt-0.5 truncate" style={{ color: 'var(--vs-muted)' }}>
-                            <span className="rounded px-1 py-0.5 text-[10px]" style={{ background: 'rgba(249,115,22,0.12)', color: 'var(--vs-orange)' }}>
-                              {p.categoria}
-                            </span>
-                          </div>
-                        )}
-                        {p.especificacao && (
-                          <div className="text-xs mt-0.5 truncate italic" style={{ color: 'var(--vs-muted)' }} title={p.especificacao}>
-                            {p.especificacao}
-                          </div>
-                        )}
+                        <div className="font-mono text-[10px] mt-0.5" style={{ color: 'var(--vs-muted)' }}>{p.codigo}</div>
                         {p.editado_por && (
-                          <div className="text-xs mt-0.5" style={{ color: 'var(--vs-muted)' }}>
+                          <div className="text-[10px] mt-0.5" style={{ color: 'var(--vs-muted)' }}>
                             editado por <span style={{ color: 'var(--vs-orange)' }}>{p.editado_por}</span>
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-3 tabular-nums font-bold" style={{ color: 'var(--vs-orange)' }}>
-                        {p.estoque_atual} <span className="text-xs font-normal" style={{ color: 'var(--vs-muted)' }}>{p.unidade}</span>
+                      <td className="px-4 py-3 max-w-[200px] text-xs" style={{ color: 'var(--vs-muted)' }}>
+                        {p.especificacao
+                          ? <span className="truncate block" title={p.especificacao}>{p.especificacao}</span>
+                          : <span style={{ color: 'var(--vs-border)' }}>—</span>
+                        }
                       </td>
-                      <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--vs-muted)' }}>{p.estoque_minimo}</td>
-                      <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--vs-muted)' }}>{p.estoque_maximo}</td>
-                      <td className="px-4 py-3 tabular-nums text-xs">{fmtR$(p.preco_medio)}</td>
+                      <td className="px-4 py-3 tabular-nums font-bold" style={{ color: 'var(--vs-orange)' }}>
+                        {p.estoque_atual}
+                      </td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--vs-muted)' }}>{p.unidade}</td>
+                      <td className="px-4 py-3 tabular-nums text-xs">{fmtR$(p.estoque_atual * p.preco_medio)}</td>
                       <td className="px-4 py-3"><StatusBadge produto={p} /></td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1.5">
