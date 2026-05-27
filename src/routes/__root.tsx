@@ -80,9 +80,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'Visual Stands Design — Stock OS' },
+      { title: 'Visual Design — Stock OS' },
       { name: 'description', content: 'Sistema de Controle de Estoque em Tempo Real' },
-      { property: 'og:title', content: 'Visual Stands Design — Stock OS' },
+      { property: 'og:title', content: 'Visual Design — Stock OS' },
       { property: 'og:type', content: 'website' },
     ],
     links: [{ rel: 'stylesheet', href: appCss }],

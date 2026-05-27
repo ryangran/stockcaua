@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { gsap } from '../../lib/gsap';
 
 const LINES = [
-  '> Inicializando Visual Stands Design OS...',
+  '> Inicializando Visual Design OS...',
   '> Conectando ao banco de dados...',
   '> Carregando módulos de estoque...',
   '> Sincronizando terminais...',

@@ -3,7 +3,7 @@ import { gsap } from '../../lib/gsap';
 import { useAuthStore } from '../../store/useAuthStore';
 
 const BRAND_LINES = [
-  '> Inicializando Visual Stands Design OS...',
+  '> Inicializando Visual Design OS...',
   '> Carregando módulos de controle...',
   '> Sistema pronto.',
 ];
@@ -236,7 +236,7 @@ export function LoginScreen({ onRegistro }: { onRegistro: () => void }) {
 
         <div className="mt-6 flex items-center justify-center gap-4">
           <p className="text-xs font-mono" style={{ color: 'var(--vs-border)' }}>
-            Visual Stands Design © {new Date().getFullYear()}
+            Visual Design © {new Date().getFullYear()}
           </p>
           <button
             onClick={onRegistro}

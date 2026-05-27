@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ──────────────────────────────────────────────────────────
-   Visual Stands Design — Token System
+   Visual Design — Token System
    Primary:   Black  (#080808)
    Secondary: Orange (#F97316)
    Tertiary:  Red    (#EF4444)
@@ -58,7 +58,7 @@
   --color-vs-muted: var(--vs-muted);
 }
 
-/* Dark-first (default) — Visual Stands Design */
+/* Dark-first (default) — Visual Design */
 :root {
   --radius: 0.5rem;
   --vs-orange: #F97316;
