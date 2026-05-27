@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '../ui/button';
 import { PackagePlus } from 'lucide-react';
 import { useStockStore } from '../../store/useStockStore';
-import { registrarMovimentacao, createProduto } from '../../lib/api';
+import { registrarMovimentacao, createProduto, updateProduto } from '../../lib/api';
 import type { MovimentacaoTipo, PasteRow } from '../../types';
 
 const fmtR$ = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -32,6 +32,13 @@ export function PasteModal({ tipo }: { tipo: MovimentacaoTipo }) {
   const temFormatoB = pasteRows.some((r) => r.setor !== undefined);
 
   async function processarRow(row: PasteRow, produtoId: string) {
+    // Atualiza categoria/especificacao do produto existente se vieram da planilha
+    if (row.setor || row.especificacao) {
+      await updateProduto(produtoId, {
+        ...(row.setor ? { categoria: row.setor } : {}),
+        ...(row.especificacao ? { especificacao: row.especificacao } : {}),
+      });
+    }
     await registrarMovimentacao({
       produto_id: produtoId,
       tipo: tipo === 'entrada' ? 'ajuste' : 'saida',
@@ -54,7 +61,12 @@ export function PasteModal({ tipo }: { tipo: MovimentacaoTipo }) {
         await processarRow(row, row.produto.id);
         const delta = tipo === 'entrada' ? row.quantidade : -row.quantidade;
         const prodAtual = produtos.find((p) => p.id === row.produto!.id);
-        if (prodAtual) upsertProduto({ ...prodAtual, estoque_atual: prodAtual.estoque_atual + delta });
+        if (prodAtual) upsertProduto({
+          ...prodAtual,
+          estoque_atual: prodAtual.estoque_atual + delta,
+          ...(row.setor ? { categoria: row.setor } : {}),
+          ...(row.especificacao ? { especificacao: row.especificacao } : {}),
+        });
         processados++;
       } catch (e) {
         console.error('Erro ao processar:', row.codigo, e);
@@ -74,6 +86,8 @@ export function PasteModal({ tipo }: { tipo: MovimentacaoTipo }) {
             estoque_minimo: 0,
             estoque_maximo: 0,
             preco_medio: row.preco_unitario ?? 0,
+            categoria: row.setor || null,
+            especificacao: row.especificacao || null,
           });
           upsertProduto(novoProd);
           criados++;
