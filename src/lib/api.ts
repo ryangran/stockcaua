@@ -55,6 +55,8 @@ export async function deleteProduto(id: string): Promise<void> {
   if (errComp) throw errComp;
   const { error: errMov } = await supabase.from('movimentacoes').delete().eq('produto_id', id);
   if (errMov) throw errMov;
+  const { error: errRet } = await supabase.from('retornos').delete().eq('produto_id', id);
+  if (errRet) throw errRet;
   const { error } = await supabase.from('produtos').delete().eq('id', id);
   if (error) throw error;
 }
