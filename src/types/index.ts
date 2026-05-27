@@ -11,6 +11,8 @@ export interface Produto {
   estoque_minimo: number;
   estoque_maximo: number;
   preco_medio: number;
+  categoria?: string | null;
+  especificacao?: string | null;
   criado_por?: string | null;
   editado_por?: string | null;
   created_at: string;

@@ -242,8 +242,20 @@ export function ProdutosTable() {
                         <Checkbox checked={sel} onChange={() => toggleSelecionado(p.id)} />
                       </td>
                       <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--vs-muted)' }}>{p.codigo}</td>
-                      <td className="px-4 py-3 max-w-[220px]">
+                      <td className="px-4 py-3 max-w-[260px]">
                         <div className="font-medium truncate">{p.nome}</div>
+                        {p.categoria && (
+                          <div className="text-xs mt-0.5 truncate" style={{ color: 'var(--vs-muted)' }}>
+                            <span className="rounded px-1 py-0.5 text-[10px]" style={{ background: 'rgba(249,115,22,0.12)', color: 'var(--vs-orange)' }}>
+                              {p.categoria}
+                            </span>
+                          </div>
+                        )}
+                        {p.especificacao && (
+                          <div className="text-xs mt-0.5 truncate italic" style={{ color: 'var(--vs-muted)' }} title={p.especificacao}>
+                            {p.especificacao}
+                          </div>
+                        )}
                         {p.editado_por && (
                           <div className="text-xs mt-0.5" style={{ color: 'var(--vs-muted)' }}>
                             editado por <span style={{ color: 'var(--vs-orange)' }}>{p.editado_por}</span>

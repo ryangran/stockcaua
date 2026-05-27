@@ -15,11 +15,17 @@ interface Props {
   produto?: Produto;
 }
 
-const empty = { codigo: '', nome: '', unidade: 'un', estoque_atual: 0, estoque_minimo: 0, estoque_maximo: 0, preco_medio: 0 };
+const empty = {
+  codigo: '', nome: '', unidade: 'un',
+  categoria: '', especificacao: '',
+  estoque_atual: 0, estoque_minimo: 0, estoque_maximo: 0, preco_medio: 0,
+};
 
 export function ProdutoModal({ open, onClose, produto }: Props) {
   const [form, setForm] = useState(empty);
   const [loading, setLoading] = useState(false);
+  const { upsertProduto } = useStockStore();
+  const usuarioLogado = useAuthStore((s) => s.usuarioLogado);
 
   useEffect(() => {
     if (open) {
@@ -27,6 +33,8 @@ export function ProdutoModal({ open, onClose, produto }: Props) {
         codigo: produto.codigo,
         nome: produto.nome,
         unidade: produto.unidade,
+        categoria: produto.categoria ?? '',
+        especificacao: produto.especificacao ?? '',
         estoque_atual: produto.estoque_atual,
         estoque_minimo: produto.estoque_minimo,
         estoque_maximo: produto.estoque_maximo,
@@ -34,8 +42,6 @@ export function ProdutoModal({ open, onClose, produto }: Props) {
       } : empty);
     }
   }, [open, produto]);
-  const { upsertProduto } = useStockStore();
-  const usuarioLogado = useAuthStore((s) => s.usuarioLogado);
 
   const set = (k: string, v: string | number) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -43,12 +49,17 @@ export function ProdutoModal({ open, onClose, produto }: Props) {
     if (!form.codigo || !form.nome) { toast.error('Código e nome são obrigatórios'); return; }
     setLoading(true);
     try {
+      const payload = {
+        ...form,
+        categoria: form.categoria || null,
+        especificacao: form.especificacao || null,
+      };
       if (produto) {
-        const p = await updateProduto(produto.id, { ...form, editado_por: usuarioLogado });
+        const p = await updateProduto(produto.id, { ...payload, editado_por: usuarioLogado });
         upsertProduto(p);
         toast.success('Produto atualizado');
       } else {
-        const p = await createProduto({ ...form, criado_por: usuarioLogado });
+        const p = await createProduto({ ...payload, criado_por: usuarioLogado });
         upsertProduto(p);
         toast.success('Produto criado');
       }
@@ -74,7 +85,7 @@ export function ProdutoModal({ open, onClose, produto }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent style={{ background: 'var(--vs-surface)', border: '1px solid var(--vs-border)', maxWidth: 480 }}>
+      <DialogContent style={{ background: 'var(--vs-surface)', border: '1px solid var(--vs-border)', maxWidth: 520 }}>
         <DialogHeader>
           <DialogTitle style={{ color: 'var(--vs-orange)' }}>
             {produto ? 'Editar Produto' : 'Novo Produto'}
@@ -85,6 +96,18 @@ export function ProdutoModal({ open, onClose, produto }: Props) {
           {field('Código *', 'codigo')}
           {field('Unidade', 'unidade')}
           <div className="col-span-2">{field('Nome *', 'nome')}</div>
+          {field('Categoria', 'categoria')}
+          <div className="col-span-2">
+            <Label className="text-xs mb-1 block" style={{ color: 'var(--vs-muted)' }}>Especificação</Label>
+            <textarea
+              value={form.especificacao}
+              onChange={(e) => set('especificacao', e.target.value)}
+              rows={2}
+              placeholder="Detalhes, marca, modelo..."
+              className="w-full rounded-md px-3 py-2 text-sm resize-none outline-none"
+              style={{ background: 'var(--vs-surface-2)', border: '1px solid var(--vs-border)', color: '#fff' }}
+            />
+          </div>
           {field('Estoque Atual', 'estoque_atual', 'number')}
           {field('Preço Médio (R$)', 'preco_medio', 'number')}
           {field('Estoque Mínimo', 'estoque_minimo', 'number')}
