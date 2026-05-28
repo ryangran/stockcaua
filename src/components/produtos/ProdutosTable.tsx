@@ -212,7 +212,7 @@ export function ProdutosTable() {
                     onChange={toggleTodos}
                   />
                 </th>
-                {['Setor', 'Produto', 'Especificação', 'Qtd', 'Unidade', 'Valor Total', 'Status', ''].map((h) => (
+                {['Setor', 'Produto', 'Especificação', 'Qtd', 'Unidade', 'Vlr Unitário', 'Valor Total', 'Status', ''].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--vs-muted)' }}>
                     {h}
                   </th>
@@ -222,7 +222,7 @@ export function ProdutosTable() {
             <tbody ref={tbodyRef}>
               {produtos.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-sm" style={{ color: 'var(--vs-muted)' }}>
+                  <td colSpan={11} className="py-12 text-center text-sm" style={{ color: 'var(--vs-muted)' }}>
                     Nenhum produto encontrado
                   </td>
                 </tr>
@@ -263,6 +263,7 @@ export function ProdutosTable() {
                         {p.estoque_atual}
                       </td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--vs-muted)' }}>{p.unidade}</td>
+                      <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--vs-muted)' }}>{fmtR$(p.preco_medio)}</td>
                       <td className="px-4 py-3 tabular-nums text-xs">{fmtR$(p.estoque_atual * p.preco_medio)}</td>
                       <td className="px-4 py-3"><StatusBadge produto={p} /></td>
                       <td className="px-4 py-3">
