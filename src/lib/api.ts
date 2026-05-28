@@ -375,10 +375,17 @@ export async function fetchMovimentacoesPorDia(): Promise<MovimentacaoDia[]> {
 }
 
 // ─── Usuários (armazenados em configuracoes como JSON) ────────
-// Usa a tabela configuracoes que já existe — sem criar nova tabela.
 
-// Usa a linha 'auth' existente — campo 'usuario' guarda o JSON de usuários.
-// O admin é hardcoded, então esse campo não é mais necessário para auth.
+// Hash de senha usando Web Crypto API (SHA-256) — disponível em browser e Cloudflare Workers
+async function hashSenha(senha: string): Promise<string> {
+  const data = new TextEncoder().encode(senha);
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Detecta se uma senha já foi hasheada (hex de 64 chars)
+const IS_HASHED = /^[0-9a-f]{64}$/;
+
 async function getUsuariosList(): Promise<Usuario[]> {
   const { data } = await supabase
     .from('configuracoes')
@@ -412,7 +419,7 @@ export async function solicitarAcesso(nome: string, senha: string): Promise<void
   lista.push({
     id: crypto.randomUUID(),
     nome: nome.trim(),
-    senha,
+    senha: await hashSenha(senha),
     role: 'user',
     status: 'pendente',
     created_at: new Date().toISOString(),
@@ -439,27 +446,18 @@ export async function updateCredenciais(
   senhaAtual: string,
   novoNome: string,
   novaSenha: string,
-  role: 'admin' | 'user',
+  _role: 'admin' | 'user',
 ): Promise<boolean> {
   const lista = await getUsuariosList();
-  const u = lista.find((u) => u.nome.toLowerCase() === nomeAtual.toLowerCase() && u.senha === senhaAtual);
-  if (!u) {
-    // Admin hardcoded: valida e adiciona à lista
-    if (nomeAtual === 'caua' && senhaAtual === '160206') {
-      const idx = lista.findIndex((u) => u.nome === 'caua');
-      if (idx >= 0) {
-        lista[idx].nome = novoNome;
-        lista[idx].senha = novaSenha;
-      } else {
-        lista.push({ id: crypto.randomUUID(), nome: novoNome, senha: novaSenha, role, status: 'aprovado', created_at: new Date().toISOString() });
-      }
-      await saveUsuariosList(lista);
-      return true;
-    }
-    return false;
-  }
-  u.nome = novoNome;
-  u.senha = novaSenha;
+  const senhaAtualHash = await hashSenha(senhaAtual);
+  // Aceita hash ou texto puro legado para migração
+  const u = lista.find((u) =>
+    u.nome.toLowerCase() === nomeAtual.toLowerCase() &&
+    (u.senha === senhaAtualHash || (!IS_HASHED.test(u.senha) && u.senha === senhaAtual))
+  );
+  if (!u) return false;
+  u.nome = novoNome.trim();
+  u.senha = await hashSenha(novaSenha);
   await saveUsuariosList(lista);
   return true;
 }
@@ -469,10 +467,38 @@ export async function loginCheck(
   senha: string,
 ): Promise<{ ok: true; role: 'admin' | 'user'; nome: string } | { ok: false; motivo: 'pendente' | 'invalido' }> {
   const lista = await getUsuariosList();
-  const u = lista.find((u) => u.nome.toLowerCase() === nome.trim().toLowerCase() && u.senha === senha);
+  const senhaHash = await hashSenha(senha);
+
+  // Bootstrap: se não existe nenhum admin aprovado, cria o admin inicial com senha hasheada
+  const adminExiste = lista.some((u) => u.role === 'admin' && u.status === 'aprovado');
+  if (!adminExiste && nome.trim() === 'caua' && senha === '160206') {
+    const adminBootstrap: Usuario = {
+      id: crypto.randomUUID(),
+      nome: 'caua',
+      senha: senhaHash,
+      role: 'admin',
+      status: 'aprovado',
+      created_at: new Date().toISOString(),
+    };
+    await saveUsuariosList([...lista, adminBootstrap]);
+    return { ok: true, role: 'admin', nome: 'caua' };
+  }
+
+  // Login normal — aceita hash ou texto puro (migração automática)
+  const u = lista.find((u) =>
+    u.nome.toLowerCase() === nome.trim().toLowerCase() &&
+    (u.senha === senhaHash || (!IS_HASHED.test(u.senha) && u.senha === senha))
+  );
   if (!u) return { ok: false, motivo: 'invalido' };
   if (u.status === 'pendente') return { ok: false, motivo: 'pendente' };
   if (u.status === 'rejeitado') return { ok: false, motivo: 'invalido' };
+
+  // Migra senha texto puro → hash automaticamente no próximo login
+  if (!IS_HASHED.test(u.senha)) {
+    u.senha = senhaHash;
+    await saveUsuariosList(lista);
+  }
+
   return { ok: true, role: u.role, nome: u.nome };
 }
 

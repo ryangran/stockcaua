@@ -17,10 +17,12 @@ function getSessionCookie(): Session | null {
   if (!match) return null;
   try {
     const parsed = JSON.parse(decodeURIComponent(match[1]));
-    if (parsed?.usuario) return { usuario: parsed.usuario, role: parsed.role ?? 'admin' };
-    return { usuario: decodeURIComponent(match[1]), role: 'admin' };
+    if (parsed?.usuario && (parsed.role === 'admin' || parsed.role === 'user')) {
+      return { usuario: parsed.usuario, role: parsed.role };
+    }
+    return null; // cookie inválido → força novo login
   } catch {
-    return { usuario: decodeURIComponent(match[1]), role: 'admin' };
+    return null; // cookie malformado → força novo login
   }
 }
 
@@ -43,18 +45,9 @@ const session = getSessionCookie();
 export const useAuthStore = create<AuthState>()((set, get) => ({
   isAuthenticated: !!session,
   usuarioLogado: session?.usuario ?? '',
-  role: session?.role ?? 'admin',
+  role: session?.role ?? 'user',
 
   login: async (usuario, senha) => {
-    // Admin hardcoded — sempre funciona independente do banco
-    if (usuario.trim() === 'caua' && senha === '160206') {
-      const sess: Session = { usuario: 'caua', role: 'admin' };
-      setSessionCookie(sess);
-      set({ isAuthenticated: true, usuarioLogado: 'caua', role: 'admin' });
-      return true;
-    }
-
-    // Busca na lista de usuários salva em configuracoes
     try {
       const result = await loginCheck(usuario, senha);
       if (result.ok) {
