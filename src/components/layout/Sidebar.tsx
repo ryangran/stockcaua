@@ -52,7 +52,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {!collapsed && (
           <div className="overflow-hidden">
             <div className="whitespace-nowrap text-sm font-black tracking-wide" style={{ color: 'var(--vs-orange)' }}>
-              VISUAL DESIGN
+              VIRTUAL DESIGN
             </div>
             <div className="text-[10px] tracking-widest uppercase" style={{ color: 'var(--vs-muted)' }}>
               Stock OS

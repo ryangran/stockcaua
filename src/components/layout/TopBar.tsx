@@ -34,7 +34,7 @@ export function TopBar({ pathname }: { pathname: string }) {
       .catch(() => {});
   }, [role]);
 
-  const title = TITLES[pathname] ?? 'Visual Design';
+  const title = TITLES[pathname] ?? 'Virtual Design';
 
   return (
     <>

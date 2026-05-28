@@ -3,7 +3,7 @@ import { gsap } from '../../lib/gsap';
 import { useAuthStore } from '../../store/useAuthStore';
 
 const BRAND_LINES = [
-  '> Inicializando Visual Design OS...',
+  '> Inicializando Virtual Design OS...',
   '> Carregando módulos de controle...',
   '> Sistema pronto.',
 ];
@@ -112,7 +112,7 @@ export function LoginScreen({ onRegistro }: { onRegistro: () => void }) {
         {/* Logo */}
         <div className="mb-8 text-center">
           <p className="text-xs font-mono tracking-[0.3em] mb-1" style={{ color: 'var(--vs-muted)' }}>
-            VISUAL DESIGN
+            VIRTUAL DESIGN
           </p>
           <h1
             className="text-4xl font-black tracking-widest neon-text"
@@ -236,7 +236,7 @@ export function LoginScreen({ onRegistro }: { onRegistro: () => void }) {
 
         <div className="mt-6 flex items-center justify-center gap-4">
           <p className="text-xs font-mono" style={{ color: 'var(--vs-border)' }}>
-            Visual Design © {new Date().getFullYear()}
+            Virtual Design © {new Date().getFullYear()}
           </p>
           <button
             onClick={onRegistro}
