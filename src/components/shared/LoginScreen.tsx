@@ -112,7 +112,7 @@ export function LoginScreen({ onRegistro }: { onRegistro: () => void }) {
         {/* Logo */}
         <div className="mb-8 text-center">
           <p className="text-xs font-mono tracking-[0.3em] mb-1" style={{ color: 'var(--vs-muted)' }}>
-            VISUAL STANDS DESIGN
+            VISUAL DESIGN
           </p>
           <h1
             className="text-4xl font-black tracking-widest neon-text"

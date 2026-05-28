@@ -42,7 +42,7 @@ export function BootScreen({ onComplete }: { onComplete: () => void }) {
       {/* Logo */}
       <div className="boot-logo mb-8 text-center">
         <div className="mb-1 text-4xl font-black tracking-tight" style={{ color: 'var(--vs-orange)' }}>
-          VISUAL STANDS
+          VISUAL DESIGN
         </div>
         <div className="text-sm font-light tracking-[0.4em] uppercase" style={{ color: 'var(--vs-muted)' }}>
           Design OS — Stock Control

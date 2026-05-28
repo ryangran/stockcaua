@@ -46,7 +46,7 @@ export function RegistroScreen({ onVoltar }: { onVoltar: () => void }) {
 
       <div ref={cardRef} style={{ opacity: 0, width: '100%', maxWidth: 420, padding: '0 16px' }}>
         <div className="mb-8 text-center">
-          <p className="text-xs font-mono tracking-[0.3em] mb-1" style={{ color: 'var(--vs-muted)' }}>VISUAL STANDS DESIGN</p>
+          <p className="text-xs font-mono tracking-[0.3em] mb-1" style={{ color: 'var(--vs-muted)' }}>VISUAL DESIGN</p>
           <h1 className="text-4xl font-black tracking-widest neon-text" style={{ color: 'var(--vs-orange)', letterSpacing: '0.15em' }}>STOCK OS</h1>
           <div className="mt-2 h-px mx-auto w-24" style={{ background: 'var(--vs-orange)', opacity: 0.4 }} />
         </div>
