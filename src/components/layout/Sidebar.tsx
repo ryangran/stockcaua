@@ -4,12 +4,13 @@ import { gsap } from '../../lib/gsap';
 import { useStockStore } from '../../store/useStockStore';
 import {
   LayoutDashboard, Package, ShoppingCart, Layers,
-  RotateCcw, ArrowLeftRight, AlertTriangle, Menu, X,
+  RotateCcw, ArrowLeftRight, AlertTriangle, Menu, X, FolderOpen,
 } from 'lucide-react';
 
 const NAV = [
   { to: '/',               icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/produtos',       icon: Package,         label: 'Produtos' },
+  { to: '/setores',        icon: FolderOpen,      label: 'Setores' },
   { to: '/compras',        icon: ShoppingCart,     label: 'Compras' },
   { to: '/kits',           icon: Layers,           label: 'Kits' },
   { to: '/movimentacoes',  icon: ArrowLeftRight,   label: 'Movimentações' },

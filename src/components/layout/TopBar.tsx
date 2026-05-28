@@ -10,6 +10,7 @@ import { fetchUsuariosPendentes } from '../../lib/api';
 const TITLES: Record<string, string> = {
   '/':              'Dashboard',
   '/produtos':      'Produtos',
+  '/setores':       'Setores',
   '/compras':       'Compras',
   '/kits':          'Kits de Produção',
   '/movimentacoes': 'Movimentações',
