@@ -525,8 +525,10 @@ export async function parsearLinhasImport(linhas: string[][], produtos: Produto[
       const nomeProduto = cel(1);
       if (!nomeProduto) continue;
 
-      const valorTotal = parseCurrency(cel(5));
-      const preco_unitario = !isNaN(valorTotal) && qtdRaw > 0 ? valorTotal / qtdRaw : undefined;
+      // Algumas planilhas separam "R$" em coluna própria (col[5]) e o número em col[6]
+      // Tentamos col[5] primeiro; se não for número válido, usamos col[6]
+      const valorTotalRaw = !isNaN(parseCurrency(cel(5))) ? parseCurrency(cel(5)) : parseCurrency(cel(6));
+      const preco_unitario = !isNaN(valorTotalRaw) && qtdRaw > 0 ? valorTotalRaw / qtdRaw : undefined;
 
       const produto = matchProduto(nomeProduto, produtos);
       rows.push({
@@ -539,7 +541,7 @@ export async function parsearLinhasImport(linhas: string[][], produtos: Produto[
         setor: cel(0),
         especificacao: cel(2),
         unidade_planilha: cel(4),
-        valor_total: !isNaN(valorTotal) ? valorTotal : undefined,
+        valor_total: !isNaN(valorTotalRaw) ? valorTotalRaw : undefined,
       });
     } else {
       // Formato legado: Código | Quantidade | Preço
