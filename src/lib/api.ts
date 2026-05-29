@@ -332,6 +332,46 @@ export async function registrarMovimentacao(params: {
   await supabase.from('movimentacoes').insert({ produto_id, tipo, quantidade, motivo, terminal });
 }
 
+export async function updateMovimentacao(
+  id: string,
+  old: { produto_id: string; tipo: MovimentacaoTipo; quantidade: number },
+  next: { produto_id: string; tipo: MovimentacaoTipo; quantidade: number; motivo?: string }
+): Promise<void> {
+  // Buscar estoque atual do produto antigo
+  const { data: oldProd } = await supabase.from('produtos').select('estoque_atual').eq('id', old.produto_id).single();
+  const oldEstoque = oldProd?.estoque_atual ?? 0;
+
+  // Reverter efeito da movimentação antiga (desfazer saída = somar, desfazer entrada/ajuste = subtrair)
+  const reverterDelta = old.tipo === 'saida' ? old.quantidade : -old.quantidade;
+  await supabase
+    .from('produtos')
+    .update({ estoque_atual: oldEstoque + reverterDelta, updated_at: new Date().toISOString() })
+    .eq('id', old.produto_id);
+
+  // Se o produto mudou, buscar estoque do novo; senão usar o estoque já revertido
+  let baseEstoque: number;
+  if (next.produto_id !== old.produto_id) {
+    const { data: np } = await supabase.from('produtos').select('estoque_atual').eq('id', next.produto_id).single();
+    baseEstoque = np?.estoque_atual ?? 0;
+  } else {
+    baseEstoque = oldEstoque + reverterDelta;
+  }
+
+  // Aplicar novo efeito
+  const novoDelta = next.tipo === 'saida' ? -next.quantidade : next.quantidade;
+  await supabase
+    .from('produtos')
+    .update({ estoque_atual: baseEstoque + novoDelta, updated_at: new Date().toISOString() })
+    .eq('id', next.produto_id);
+
+  // Atualizar registro da movimentação
+  const { error } = await supabase
+    .from('movimentacoes')
+    .update({ produto_id: next.produto_id, tipo: next.tipo, quantidade: next.quantidade, motivo: next.motivo ?? null })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 // ─── Dashboard Stats ──────────────────────────────────────
 export async function fetchDashboardStats(produtos: Produto[]): Promise<DashboardStats> {
   const total_skus = produtos.length;
