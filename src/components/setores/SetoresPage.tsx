@@ -17,6 +17,7 @@ export function SetoresPage() {
   const produtos = useStockStore((s) => s.produtos);
   const [setorSelecionado, setSetorSelecionado] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
+  const [buscaSetor, setBuscaSetor] = useState('');
 
   // Monta lista de setores com contagens
   const setoresMap = new Map<string, Produto[]>();
@@ -25,11 +26,16 @@ export function SetoresPage() {
     if (!setoresMap.has(setor)) setoresMap.set(setor, []);
     setoresMap.get(setor)!.push(p);
   }
-  const setores = Array.from(setoresMap.entries()).sort(([a], [b]) => {
-    if (a === '(Sem setor)') return 1;
-    if (b === '(Sem setor)') return -1;
-    return a.localeCompare(b);
-  });
+  const setores = Array.from(setoresMap.entries())
+    .sort(([a], [b]) => {
+      if (a === '(Sem setor)') return 1;
+      if (b === '(Sem setor)') return -1;
+      return a.localeCompare(b);
+    })
+    .filter(([setor]) =>
+      buscaSetor.trim() === '' ||
+      setor.toLowerCase().includes(buscaSetor.toLowerCase())
+    );
 
   const produtosDoSetor = setorSelecionado != null
     ? (setoresMap.get(setorSelecionado) ?? [])
@@ -52,12 +58,22 @@ export function SetoresPage() {
         className="flex flex-col shrink-0 rounded-xl overflow-hidden"
         style={{ width: 260, background: 'var(--vs-surface)', border: '1px solid var(--vs-border)' }}
       >
-        <div className="px-4 py-3 shrink-0" style={{ borderBottom: '1px solid var(--vs-border)' }}>
+        <div className="px-4 pt-3 pb-2 shrink-0 space-y-2" style={{ borderBottom: '1px solid var(--vs-border)' }}>
           <div className="flex items-center gap-2">
             <Layers size={14} style={{ color: 'var(--vs-orange)' }} />
             <span className="text-sm font-semibold">Setores</span>
+            <span className="text-xs ml-auto" style={{ color: 'var(--vs-muted)' }}>{setores.length}</span>
           </div>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--vs-muted)' }}>{setores.length} setores encontrados</p>
+          <div className="relative">
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--vs-muted)' }} />
+            <Input
+              placeholder="Buscar setor..."
+              value={buscaSetor}
+              onChange={(e) => setBuscaSetor(e.target.value)}
+              className="pl-7 h-7 text-xs"
+              style={{ background: 'var(--vs-surface-2)', border: '1px solid var(--vs-border)', color: '#fff' }}
+            />
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
